@@ -46,6 +46,20 @@ env_set() {
   chmod 600 "$ENV_FILE"
 }
 
+# uv is a standalone binary: using the copy that lives inside a conda env does NOT
+# activate or touch that env. Order: $UV / .env UV, PATH, standalone installs, conda envs.
+find_uv() {
+  local candidate
+  for candidate in "${UV:-}" "$(env_get UV)" "$(command -v uv 2>/dev/null || true)" \
+    "$HOME/.local/bin/uv" "$HOME/.cargo/bin/uv"; do
+    [[ -n "$candidate" && -x "$candidate" ]] && { echo "$candidate"; return 0; }
+  done
+  for candidate in "$HOME"/{miniconda3,anaconda3,miniforge3,mambaforge}/{bin,envs/*/bin}/uv; do
+    [[ -x "$candidate" ]] && { echo "$candidate"; return 0; }
+  done
+  return 1
+}
+
 random_secret() {
   if have openssl; then openssl rand -base64 48 | tr -d '\n/+=' | cut -c1-"${1:-48}"
   else head -c 64 /dev/urandom | base64 | tr -d '\n/+=' | cut -c1-"${1:-48}"; fi

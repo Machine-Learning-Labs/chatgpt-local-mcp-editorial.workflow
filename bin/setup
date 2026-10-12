@@ -59,9 +59,9 @@ chmod 700 "$root_dir"
 ok "editorial folder: $root_dir (drop images to place in $root_dir/inbox)"
 
 if (( DEV )); then
-  if have uv; then
-    uv venv -q --allow-existing "$ROOT/.venv"
-    uv pip install -q --python "$ROOT/.venv/bin/python" -e "${ROOT}[dev]"
+  if uv="$(find_uv)"; then
+    "$uv" venv -q --allow-existing "$ROOT/.venv"
+    "$uv" pip install -q --python "$ROOT/.venv/bin/python" -e "${ROOT}[dev]"
   else
     python3 -m venv "$ROOT/.venv"
     "$ROOT/.venv/bin/pip" install -q -e "${ROOT}[dev]"
