@@ -11,7 +11,13 @@ from .oauth import OAuthServer
 
 
 def _serve(args: argparse.Namespace, settings: Settings) -> int:
+    import logging
+
     import uvicorn
+
+    logging.basicConfig(
+        level=args.log_level.upper(), format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+    )
 
     from .app import create_app
 
@@ -28,7 +34,10 @@ def _serve(args: argparse.Namespace, settings: Settings) -> int:
 
 def _token(args: argparse.Namespace, settings: Settings) -> int:
     oauth = OAuthServer(settings)
-    issuer = (args.public_url or settings.public_url or "").rstrip("/") or None
+    # The token is bound (aud) to one resource URL: the public one, or the local port.
+    issuer = (args.public_url or settings.public_url or f"http://127.0.0.1:{settings.port}").rstrip(
+        "/"
+    )
     token = oauth.mint_access_token(ttl=args.ttl, subject=args.subject, issuer=issuer)
     if args.json:
         print(

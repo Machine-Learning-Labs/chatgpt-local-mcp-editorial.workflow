@@ -5,6 +5,7 @@ Implements:
 - RFC 8414 authorization server metadata
 - RFC 7591 dynamic client registration (stateless: the client_id is a signed token)
 - Authorization code + PKCE (S256 only), refresh token rotation
+- RFC 9207 ``iss`` in authorization responses, RFC 8707 resource/audience binding
 """
 
 from __future__ import annotations
@@ -68,6 +69,26 @@ def redirect_matches(registered: list[str], requested: str) -> bool:
         if (reg.scheme, reg.hostname, reg.path) == (req.scheme, req.hostname, req.path):
             return True
     return False
+
+
+def redirect_allowed(uri: str, prefixes: tuple[str, ...]) -> bool:
+    """Exact scheme/host(/port) match plus path prefix (no naive string prefix matching)."""
+    if not prefixes:
+        return True
+    req = urlsplit(uri)
+    for prefix in prefixes:
+        allowed = urlsplit(prefix)
+        if (req.scheme, req.hostname) != (allowed.scheme, allowed.hostname):
+            continue
+        if allowed.port is not None and req.port != allowed.port:
+            continue
+        if req.path.startswith(allowed.path):
+            return True
+    return False
+
+
+def same_resource(a: str | None, b: str | None) -> bool:
+    return bool(a) and bool(b) and a.rstrip("/") == b.rstrip("/")
 
 
 def oauth_error(error: str, description: str, status: int = 400, **headers: str) -> JSONResponse:
@@ -149,6 +170,7 @@ class OAuthServer:
                 "response_types_supported": ["code"],
                 "grant_types_supported": ["authorization_code", "refresh_token"],
                 "code_challenge_methods_supported": ["S256"],
+                "authorization_response_iss_parameter_supported": True,
                 "token_endpoint_auth_methods_supported": [
                     "none",
                     "client_secret_post",
@@ -174,6 +196,17 @@ class OAuthServer:
             return oauth_error(
                 "invalid_redirect_uri",
                 "redirect_uris must use https, loopback http or a private-use scheme",
+            )
+        rejected = [
+            u
+            for u in redirect_uris
+            if not redirect_allowed(u, self.settings.allowed_redirect_prefixes)
+        ]
+        if rejected:
+            return oauth_error(
+                "invalid_redirect_uri",
+                f"redirect_uri not allowed by this gateway: {rejected[0]} "
+                "(see GATEWAY_ALLOWED_REDIRECTS)",
             )
         auth_method = meta.get("token_endpoint_auth_method", "none")
         if auth_method not in {"none", "client_secret_post", "client_secret_basic"}:
@@ -228,9 +261,12 @@ class OAuthServer:
             return HTMLResponse(error_page("redirect_uri does not match the registration."), 400)
 
         state = q.get("state")
+        issuer = base_url(request, self.settings)
 
         def fail(error: str, description: str) -> Response:
-            return _redirect(redirect_uri, error=error, error_description=description, state=state)
+            return _redirect(
+                redirect_uri, error=error, error_description=description, state=state, iss=issuer
+            )
 
         if q.get("response_type") != "code":
             return fail("unsupported_response_type", "only response_type=code is supported")
@@ -241,6 +277,9 @@ class OAuthServer:
         unknown = set(scope.split()) - set(self.settings.scopes)
         if unknown:
             return fail("invalid_scope", f"unknown scope(s): {' '.join(sorted(unknown))}")
+        resource = q.get("resource")
+        if resource and not same_resource(resource, self.resource_url(request)):
+            return fail("invalid_target", "resource is not served by this authorization server")
 
         request_token = self.signer.issue(
             "authz_request",
@@ -250,7 +289,8 @@ class OAuthServer:
             state=state,
             code_challenge=challenge,
             scope=scope,
-            resource=q.get("resource"),
+            resource=resource,
+            issuer=issuer,
         )
         if self.settings.auto_approve:
             return self._issue_code(self.signer.decode(request_token, typ="authz_request"))
@@ -261,7 +301,7 @@ class OAuthServer:
                 scope=scope,
                 request_token=request_token,
             ),
-            headers={"X-Frame-Options": "DENY", **NO_STORE},
+            headers=NO_STORE,
         )
 
     async def _authorize_decision(self, request: Request) -> Response:
@@ -276,6 +316,7 @@ class OAuthServer:
                 error="access_denied",
                 error_description="the owner denied access",
                 state=req.get("state"),
+                iss=req.get("issuer"),
             )
 
         ip = request.client.host if request.client else "unknown"
@@ -308,7 +349,9 @@ class OAuthServer:
             scope=req["scope"],
             resource=req.get("resource"),
         )
-        return _redirect(req["redirect_uri"], code=code, state=req.get("state"))
+        return _redirect(
+            req["redirect_uri"], code=code, state=req.get("state"), iss=req.get("issuer")
+        )
 
     # -------------------------------------------------------------------- token
     async def token(self, request: Request) -> Response:
@@ -414,8 +457,12 @@ class OAuthServer:
             aud=audience or (f"{issuer}/mcp" if issuer else None),
         )
 
-    def verify_access_token(self, token: str) -> dict:
-        return self.signer.decode(token, typ="access")
+    def verify_access_token(self, token: str, audience: str | None = None) -> dict:
+        """Signature, type and expiry; plus ``aud`` when the expected resource is given."""
+        claims = self.signer.decode(token, typ="access")
+        if audience is not None and not same_resource(claims.get("aud"), audience):
+            raise TokenError("token audience does not match this resource")
+        return claims
 
 
 def _redirect(uri: str, **params: str | None) -> RedirectResponse:
