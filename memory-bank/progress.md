@@ -28,9 +28,9 @@
 
 ## Not verified yet
 
-- [ ] The full `make up` in host mode with ngrok, and ChatGPT connecting (owner).
-- [ ] The interactive bridge with `python3-pyqt5` installed (owner: `make scribus`).
-- [ ] The image flow through the inbox from ChatGPT.
+- [x] The full `make up` in host mode with ngrok, and ChatGPT connecting (owner confirmed on 2026-10-12, tagged v0.2.0).
+- [x] The interactive bridge with `python3-pyqt5` installed (owner confirmed).
+- [ ] The image flow from ChatGPT. **The manual inbox flow does not work for the owner**, so an assets service is needed (see activeContext).
 - [ ] Docker Engine (only Podman is available here). CI covers compose config and image builds.
 
 ## Known issues

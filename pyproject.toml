@@ -1,6 +1,6 @@
 [project]
 name = "mcp-oauth-gateway"
-version = "0.1.0"
+version = "0.2.0"
 description = "OAuth 2.1 gateway that publishes a local MCP server (Scribus) through ngrok with a single command."
 readme = "README.md"
 license = { text = "MIT" }

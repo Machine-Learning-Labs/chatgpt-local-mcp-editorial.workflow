@@ -4,7 +4,11 @@ This file follows [Keep a Changelog](https://keepachangelog.com/) and [SemVer](h
 
 ## [Unreleased]
 
-### Added (host mode and hardening)
+## [0.2.0] - 2026-10-12
+
+Host mode: ChatGPT drives the desktop Scribus, verified end to end through ngrok.
+
+### Added
 
 - Host mode as the default. scribus-mcp runs as a systemd user unit (`bin/host-service`), either transient or installed, from a dedicated uv venv that is isolated from conda. Gateway and ngrok run on the host network and bind to loopback only. `bin/scribus` opens the desktop Scribus with the bridge loaded.
 - A tool policy in the gateway:
@@ -30,6 +34,13 @@ This file follows [Keep a Changelog](https://keepachangelog.com/) and [SemVer](h
 ### Removed
 
 - `/.well-known/openid-configuration`. The gateway is not an OIDC provider, and ChatGPT would otherwise request OIDC scopes.
+
+### Fixed
+
+- Rewritten SSE responses (`tools/list`, `initialize`) now keep the upstream's CRLF framing and are streamed without `Content-Length`. Before this fix, ngrok broke them with an HTTP/2 `PROTOCOL_ERROR`.
+- `bin/` finds `uv` outside `PATH`: standalone installs, conda envs, or `UV` in `.env`.
+
+## [0.1.0] - 2026-10-12
 
 ### Added
 
