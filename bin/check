@@ -129,6 +129,32 @@ host_live() {
   fi
 }
 
+assets_live() {
+  local local_url="$1" token body code listeners
+  code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$local_url/assets/mcp")"
+  [[ "$code" == "401" ]] && ok "/assets/mcp without token → 401" || err "/assets/mcp without token returned $code"
+  token="$("$ROOT/bin/token" --quiet --local --assets)" || { err "could not mint an assets token"; return; }
+  body="$(curl -sS -X POST "$local_url/mcp" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' -d '{}' -o /dev/null -w '%{http_code}')"
+  [[ "$body" == "401" ]] && ok "assets token rejected by the Scribus connector (separate audience)" \
+    || err "assets token accepted by /mcp ($body)"
+  body="$(curl -sS -X POST "$local_url/assets/mcp" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
+    -H 'Accept: application/json, text/event-stream' -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' || true)"
+  if grep -q '"import_image"' <<<"$body" && grep -q 'openai/fileParams' <<<"$body"; then
+    ok "assets connector: import_image (openai/fileParams), list_assets, request_image_upload"
+  else
+    err "assets connector tools/list failed (make logs s=assets)"
+  fi
+  body="$(mcp_call "$local_url/assets/mcp" "$token" '{"name":"list_assets","arguments":{"folder":"/etc"}}' || true)"
+  grep -q 'Refused' <<<"$body" && ok "assets policy: folder outside $(editorial_root) refused" \
+    || err "assets policy did NOT refuse /etc"
+  if [[ "$(mcp_mode)" == "host" ]]; then
+    listeners="$(ss -Hltn "sport = :$(env_get ASSETS_PORT 8766)" 2>/dev/null | awk '{print $4}')"
+    if [[ -z "$listeners" ]]; then err "assets is not listening on :$(env_get ASSETS_PORT 8766)"
+    elif grep -qvE '^(127\.0\.0\.1|\[::1\]):' <<<"$listeners"; then err "assets listens beyond loopback: $listeners"
+    else ok "assets bound to loopback only ($listeners)"; fi
+  fi
+}
+
 live() {
   local local_url public token body code
   local_url="$(gateway_local_url)"
@@ -151,6 +177,7 @@ live() {
   body="$(mcp_call "$local_url/mcp" "$token" '{"name":"run_script","arguments":{}}' || true)"
   grep -q 'Refused' <<<"$body" && ok "policy: run_script refused" || err "policy did NOT refuse run_script"
   [[ "$(mcp_mode)" == "host" ]] && host_live "$local_url" "$token"
+  assets_live "$local_url"
 
   if public="$(public_url)"; then
     code="$(curl -s -o /dev/null -w '%{http_code}' "$public/.well-known/oauth-protected-resource")"
@@ -158,6 +185,9 @@ live() {
     token="$("$ROOT/bin/token" --quiet)"
     if body="$(mcp_initialize "$public/mcp" "$token")" && grep -q '"serverInfo"' <<<"$body"; then
       ok "MCP initialize through ngrok"
+      token="$("$ROOT/bin/token" --quiet --assets)"
+      body="$(mcp_initialize "$public/assets/mcp" "$token" || true)"
+      grep -q '"serverInfo"' <<<"$body" && ok "assets initialize through ngrok" || err "assets initialize through ngrok failed"
     else
       err "MCP initialize through ngrok failed"
     fi

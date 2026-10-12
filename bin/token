@@ -5,14 +5,16 @@
 #   bin/token --quiet         only the token (for scripts)
 #   bin/token --ttl 86400     custom lifetime in seconds
 #   bin/token --local         token for http://127.0.0.1:$GATEWAY_PORT (tokens are bound to one URL)
+#   bin/token --assets        token for the Editorial Assets connector (/assets/mcp)
 source "$(dirname "$0")/lib.sh"
 
-QUIET=0 LOCAL=0 ARGS=()
+QUIET=0 LOCAL=0 RESOURCE=/mcp ARGS=()
 while (( $# )); do
   case "$1" in
     -q|--quiet) QUIET=1 ;;
     --ttl) ARGS+=(--ttl "$2"); shift ;;
     --local) LOCAL=1 ;;
+    --assets) RESOURCE=/assets/mcp ;;
     -h|--help) sed -n '2,6p' "$0"; exit 0 ;;
     *) die "unknown option: $1" ;;
   esac
@@ -20,7 +22,7 @@ while (( $# )); do
 done
 
 if (( LOCAL )); then PUBLIC=""; else PUBLIC="$(public_url 2>/dev/null || true)"; fi
-ARGS+=(--public-url "${PUBLIC:-$(gateway_local_url)}")
+ARGS+=(--public-url "${PUBLIC:-$(gateway_local_url)}" --resource "$RESOURCE")
 
 mint() {
   if curl -fsS -o /dev/null "$(gateway_local_url)/healthz" 2>/dev/null; then
@@ -39,9 +41,10 @@ TOKEN="$(mint | tr -d '\r' | tail -n1)"
 [[ -n "$TOKEN" ]] || die "empty token"
 if (( QUIET )); then echo "$TOKEN"; exit 0; fi
 
-URL="${PUBLIC:-$(gateway_local_url)}/mcp"
+URL="${PUBLIC:-$(gateway_local_url)}$RESOURCE"
 cat <<EOF
 ${C_GRN}MCP URL${C_OFF}   $URL
+${C_GRN}Assets${C_OFF}    ${PUBLIC:-$(gateway_local_url)}/assets/mcp  (second connector: images → $(editorial_root)/$(env_get ASSETS_SUBDIR libro/assets))
 ${C_GRN}Token${C_OFF}     $TOKEN
 
 ${C_DIM}# OAuth clients (claude.ai connectors, ChatGPT, Claude Code) only need the URL;

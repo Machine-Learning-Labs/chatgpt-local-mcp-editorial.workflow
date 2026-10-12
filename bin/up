@@ -28,6 +28,14 @@ if [[ "$mode" == "container" ]]; then
     python -c "import socket; socket.create_connection(('127.0.0.1', 8000), 2)" \
     || warn "scribus-mcp is not ready yet (make logs s=scribus-mcp)"
 fi
+if [[ "$mode" == "host" ]]; then
+  wait_for "assets ready" 60 curl -fsS "http://127.0.0.1:$(env_get ASSETS_PORT 8766)/healthz" \
+    || warn "assets is not ready yet (make logs s=assets)"
+else
+  wait_for "assets ready" 60 compose exec -T assets python -c \
+    "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8766/healthz', timeout=2)" \
+    || warn "assets is not ready yet (make logs s=assets)"
+fi
 wait_for "ngrok tunnel up" 60 public_url || warn "ngrok has no URL yet (make logs s=ngrok)"
 
 echo
