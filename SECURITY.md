@@ -2,12 +2,14 @@
 
 This project puts a program that can run Scribus, and optionally arbitrary Python, on the public internet. The gateway is the only safeguard, so treat it accordingly.
 
+The full threat model and the controls are in [docs/security.md](docs/security.md).
+
 ## Recommendations
 
 - Keep `GATEWAY_AUTO_APPROVE=false`, and use a long owner password (the generated one is 20 characters).
-- Keep `SCRIBUS_MCP_RUN_SCRIPT=0` unless you have a specific need.
-- Mount only the folder you want to share as `WORKSPACE_DIR`.
-- In host mode, firewall `HOST_MCP_PORT`, because scribus-mcp itself has no authentication.
+- Keep the default `POLICY_DENY_TOOLS`. Point `EDITORIAL_ROOT` at a dedicated folder, never at `$HOME`.
+- Restrict `GATEWAY_ALLOWED_CLIENT_CIDRS` to OpenAI's published connector ranges if you only use ChatGPT.
+- Review the audit log with `make logs s=gateway`.
 - Run `make rotate` if you suspect a token or the `.env` file has leaked.
 - `make down` when you're not using it.
 
