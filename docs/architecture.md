@@ -11,6 +11,8 @@ MCP client ─HTTPS─▶ ngrok edge ─▶ ngrok agent ─▶ gateway:8080 ─�
                                   (bridge network; only the gateway publishes 127.0.0.1:8080)
 ```
 
+A third container, **assets** (`src/editorial_assets`), is a second protected resource at `/assets/mcp`. It runs on host networking with loopback `127.0.0.1:8766` in host mode, and as `assets:8766` in container mode. The gateway also passes `/upload/<token>` through to it without a bearer: the signed single-use token is the capability. See [assets-connector.md](assets-connector.md).
+
 The gateway (`src/mcp_oauth_gateway`) does three jobs:
 
 1. **OAuth 2.1 authorization server.** It implements RFC 8414 metadata, RFC 7591 DCR, PKCE S256, RFC 9207 `iss` and refresh rotation.
@@ -49,6 +51,10 @@ The path jail needs the gateway to see the real filesystem so it can resolve sym
 | scribus-mcp runs in a dedicated uv venv under systemd `--user`, transient by default | Isolated from conda and the system Python. `make down` leaves nothing behind. Hardened with systemd properties. |
 | Stateless HS256 tokens | No database. `make rotate` is the kill switch. |
 | The issuer comes from proxy headers | Random ngrok URLs work without configuration. `PUBLIC_URL` pins the issuer when needed. |
+
+## Multiple protected resources
+
+Each resource has its own protected resource metadata (`/.well-known/oauth-protected-resource/<path>`), its own `WWW-Authenticate` challenge and its own audience. A token for `/mcp` gets a 401 on `/assets/mcp`, and vice versa. Both resources share one authorization server, one consent password and one signing key.
 
 ## Known limits
 

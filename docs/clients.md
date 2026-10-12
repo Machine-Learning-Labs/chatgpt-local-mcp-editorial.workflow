@@ -19,6 +19,15 @@ The gateway supports RFC 9207 (`iss` in the authorization response), so ChatGPT 
 
 Every tool carries `securitySchemes: [{type: oauth2, scopes: [mcp]}]`. Tools hidden by the policy (`run_script`, the JavaScript tools and font installation) don't appear in the list.
 
+## ChatGPT: second connector for images
+
+Add a second custom MCP server with the same settings, changing:
+
+- **Name:** Editorial Assets
+- **Server URL:** `https://<domain>/assets/mcp`
+
+It has its own OAuth flow and its own token. Usage and the prompt recipe are in [assets-connector.md](assets-connector.md).
+
 ## Other OAuth clients
 
 | Client | Where |

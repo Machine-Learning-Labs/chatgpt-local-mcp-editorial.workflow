@@ -4,6 +4,16 @@ This file follows [Keep a Changelog](https://keepachangelog.com/) and [SemVer](h
 
 ## [Unreleased]
 
+### Added
+
+- The **Editorial Assets** MCP server (`src/editorial_assets`, container `assets`), exposed as a second connector at `/assets/mcp` with its own OAuth audience. Its tools:
+  - `import_image`, which receives files from ChatGPT through `openai/fileParams`, with an SSRF-guarded download from OpenAI file hosts,
+  - `list_assets`,
+  - `request_image_upload`, which issues single-use signed upload links served through `/upload/<token>`.
+- Images are validated strictly and stored in `EDITORIAL_ROOT/libro/assets`. PNG and JPEG are kept byte for byte, so C2PA provenance survives. WebP is converted to PNG. Writes are deduplicated and never overwrite.
+- The gateway supports multiple protected resources, each with its own metadata, challenge and audience. It forwards `X-Forwarded-Host`. `token --resource` and `bin/token --assets` mint tokens for a given resource.
+- `bin/check --live` covers the assets connector: separate audience, `fileParams`, policy refusals, loopback bind, and the path through ngrok.
+
 ## [0.2.0] - 2026-10-12
 
 Host mode: ChatGPT drives the desktop Scribus, verified end to end through ngrok.

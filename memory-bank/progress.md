@@ -26,7 +26,21 @@
 - [x] The hardened gateway container runs with `--network host`, `--read-only`, `--cap-drop ALL`, `no-new-privileges` and the root mounted read-only. It listens on 127.0.0.1 only, and the policy refuses `/etc/passwd`.
 - [x] `bin/compose config` works for both modes with podman-compose 1.5 (`!reset` drops the published ports in host mode).
 
+### Editorial Assets (2026-10-13)
+
+- [x] 165 tests pass (assets: images, fetch, server, gateway multi-resource), at 92% coverage. ruff and shellcheck are clean.
+- [x] End-to-end with the real hardened assets container (host network, read-only, `cap_drop`, user `0:0`) and the gateway:
+  - OAuth with the assets resource; the assets token is rejected on `/mcp`,
+  - `tools/list` keeps `openai/fileParams` and adds `securitySchemes`,
+  - a download from a disallowed host is refused, and so is `/etc` as a folder,
+  - the upload link's GET and POST work, and reuse returns 410,
+  - **the owner's real `amplificador.png` was stored byte-identical, with C2PA preserved**, mode 0640.
+- [x] `bin/compose config` works for both modes with the assets service.
+
 ## Not verified yet
+
+- [ ] Whether ChatGPT web hydrates `openai/fileParams` for our developer-mode connector (`import_image`).
+- [ ] The full `make up` with the assets container, and the second connector added in ChatGPT.
 
 - [x] The full `make up` in host mode with ngrok, and ChatGPT connecting (owner confirmed on 2026-10-12, tagged v0.2.0).
 - [x] The interactive bridge with `python3-pyqt5` installed (owner confirmed).

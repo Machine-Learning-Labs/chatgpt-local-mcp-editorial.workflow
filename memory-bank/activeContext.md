@@ -1,8 +1,32 @@
 # Active context
 
-_Last updated: 2026-10-12_
+_Last updated: 2026-10-13_
 
-## Current focus
+## Current focus (2026-10-13): images from ChatGPT
+
+v0.2.0 is tagged, and the owner confirmed host mode works end to end.
+
+The manual inbox flow **did not work** for the owner. Constraints:
+- No OpenAI API key is allowed, because API usage is billed. Generation must stay inside ChatGPT.
+- The owner uses **ChatGPT web**.
+- The image must land automatically in `~/Editorial/libro/assets`.
+
+The evidence that shaped the design came from the owner's own conversation:
+- ChatGPT web uploaded a generated image to the **Canva** connector by itself, from its sandbox file `/mnt/data/cómo_funciona_un_amplificador_de_guitarra.png`.
+- It also produced a 2.9 MB base64 `.txt` of that image.
+
+So the sandbox has the generated image, and connectors can receive it through `openai/fileParams`. Base64 through a tool argument is impossible: about 700k output tokens.
+
+What is now implemented, but **not yet tested against ChatGPT**, is the **Editorial Assets** second connector (`/assets/mcp`, our own code in `src/editorial_assets`, its own audience):
+- `import_image` (fileParams),
+- `list_assets`,
+- `request_image_upload` (single-use link, as the fallback).
+
+C2PA is kept, as the owner decided: original bytes, strictly validated.
+
+Next step: the owner runs `make up`, adds the second connector in ChatGPT, and tries the recipe in `docs/assets-connector.md`. Check `make logs s=assets` to see whether `import_image` receives a hydrated file object on web. If it doesn't, use the upload link, and consider the downloads watcher (`~/Downloads/ChatGPT Image*.png` → assets) as a one-click option.
+
+## Previous focus
 
 The goal is that the owner generates images in ChatGPT, and pages are created in their **desktop Scribus**, safely. Option A ("ubuntu-host") is implemented and verified piece by piece. The owner still has to run it end to end with ngrok and ChatGPT.
 

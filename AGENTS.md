@@ -14,7 +14,8 @@ There are two modes:
 
 ```
 docker-compose.yml          gateway + scribus-mcp (profile "container") + ngrok
-docker-compose.host.yml     host-mode override: gateway + ngrok on host network, loopback only
+docker-compose.host.yml     host-mode override: gateway + ngrok + assets on host network, loopback only
+containers/assets/          Containerfile for the Editorial Assets MCP server
 containers/gateway/         Containerfile for the gateway (python:3.12-slim)
 containers/scribus-mcp/     Containerfile for Debian trixie + scribus + xvfb + scribus-mcp (pip)
 src/mcp_oauth_gateway/
@@ -26,6 +27,11 @@ src/mcp_oauth_gateway/
   pages.py                  consent / error HTML
   app.py                    Starlette wiring (create_app), CORS, GuardMiddleware (headers, /token IP + size)
   cli.py                    `mcp-oauth-gateway serve | token`
+src/editorial_assets/       second MCP (our code): images from ChatGPT → EDITORIAL_ROOT/libro/assets
+  images.py                 strict validation (magic, full decode, pixel cap, no trailing data), keep C2PA
+  fetch.py                  SSRF-guarded download (host allowlist, public IPs, manual redirects, size cap)
+  server.py                 FastMCP (mcp<2) tools import_image (openai/fileParams), list_assets,
+                            request_image_upload + /upload/{token} route
 tests/                      pytest; FakeUpstream (conftest.py) stands in for the MCP
 bin/                        every operational script; lib.sh holds the shared helpers
   host-service              scribus-mcp systemd user unit: start (transient) / install / uninstall
@@ -45,7 +51,7 @@ memory-bank/                living project memory (decisions, progress, current 
 
 ## Rules
 
-1. **Don't write a Scribus MCP.** For Scribus features, upgrade or configure `scribus-mcp` (`SCRIBUS_MCP_VERSION`), or contribute upstream.
+1. **Don't write a Scribus MCP.** The only MCP we own is `editorial_assets`, which moves files into the editorial folder and nothing else. For Scribus features, upgrade or configure `scribus-mcp` (`SCRIBUS_MCP_VERSION`), or contribute upstream.
 2. **Every gateway change needs tests.** Security-relevant branches (PKCE, redirect matching, token types, expiry, scopes, rate limit) must each have a failing-path test. Keep coverage of `oauth.py`, `tokens.py` and `proxy.py` at or above 90%.
 3. **The gateway stays stateless.** Clients, codes and tokens are signed tokens, distinguished by `typ`. The only in-memory state is used-code tracking and the rate limiter, and both are disposable. Don't add a database without recording the decision in `memory-bank/systemPatterns.md`.
 4. **Keep the runtime dependency list short:** starlette, uvicorn, httpx, python-multipart. Crypto comes from the stdlib (`hmac`, `hashlib`, `secrets`).
