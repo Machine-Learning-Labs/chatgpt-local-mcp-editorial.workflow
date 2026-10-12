@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+# Preflight (default) and live end-to-end checks.
+#
+#   bin/check          tools, .env, ports, compose file
+#   bin/check --live   running stack: health, OAuth metadata, 401 challenge, MCP initialize
+#                      through the gateway and through the public ngrok URL
+source "$(dirname "$0")/lib.sh"
+
+LIVE=0
+[[ "${1:-}" == "--live" ]] && LIVE=1
+[[ "${1:-}" == "-h" || "${1:-}" == "--help" ]] && { sed -n '2,6p' "$0"; exit 0; }
+ERRORS=0
+err() { fail "$*"; ERRORS=$((ERRORS + 1)); }
+
+preflight() {
+  info "tools"
+  local cmd
+  if cmd="$(compose_cmd)"; then ok "compose: $cmd ($(engine))"; else err "install docker compose or podman-compose"; fi
+  have curl && ok "curl" || err "curl is required"
+  have ngrok && ok "ngrok CLI $(ngrok version 2>/dev/null | awk '{print $3}') (optional, the stack uses the ngrok image)" \
+    || warn "ngrok CLI not installed (optional)"
+  if have scribus; then
+    ok "local $(scribus --version 2>/dev/null | grep -i version | head -n1 || echo Scribus) (used in host mode)"
+  else
+    [[ "$(env_get MCP_MODE container)" == "host" ]] && err "MCP_MODE=host but scribus is not installed" \
+      || warn "scribus not installed locally (fine in container mode)"
+  fi
+
+  info "configuration (.env)"
+  [[ -f "$ENV_FILE" ]] || { err ".env missing: run bin/setup"; return; }
+  local perms; perms="$(stat -c %a "$ENV_FILE" 2>/dev/null || stat -f %Lp "$ENV_FILE")"
+  [[ "$perms" == "600" ]] && ok ".env permissions 600" || warn ".env permissions are $perms (chmod 600 .env)"
+  local secret; secret="$(env_get GATEWAY_SECRET)"
+  (( ${#secret} >= 32 )) && ok "GATEWAY_SECRET set" || err "GATEWAY_SECRET missing/short: run bin/setup"
+  if [[ "$(env_get GATEWAY_AUTO_APPROVE false)" == "true" ]]; then
+    warn "GATEWAY_AUTO_APPROVE=true: anyone with the URL can get a token"
+  else
+    [[ -n "$(env_get GATEWAY_OWNER_PASSWORD)" ]] && ok "owner password set" || err "GATEWAY_OWNER_PASSWORD missing"
+  fi
+  [[ -n "$(env_get NGROK_AUTHTOKEN)" ]] && ok "NGROK_AUTHTOKEN set" || err "NGROK_AUTHTOKEN missing"
+  [[ -n "$(env_get NGROK_DOMAIN)" ]] && ok "static domain $(env_get NGROK_DOMAIN)" \
+    || warn "no NGROK_DOMAIN: the URL changes on each restart (clients must reconnect)"
+
+  local mode; mode="$(env_get MCP_MODE container)"
+  case "$mode" in
+    container) ok "MCP mode container (scribus-mcp $(env_get SCRIBUS_MCP_VERSION 1.3.1), headless Scribus)" ;;
+    host) ok "MCP mode host on port $(env_get HOST_MCP_PORT 8765) (start it with make host-mcp)"
+          have uvx || have scribus-mcp || err "host mode needs uv (uvx) or scribus-mcp installed" ;;
+    *) err "MCP_MODE must be container or host (got $mode)" ;;
+  esac
+
+  [[ "$(env_get SCRIBUS_MCP_RUN_SCRIPT 0)" == "1" ]] \
+    && warn "SCRIBUS_MCP_RUN_SCRIPT=1: any authorized client can run arbitrary Python"
+
+  info "ports"
+  local port; port="$(env_get GATEWAY_PORT 8080)"
+  if curl -fsS -o /dev/null "http://127.0.0.1:$port/healthz" 2>/dev/null; then ok "gateway already running on $port"
+  elif (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; then err "port $port is busy (set GATEWAY_PORT)"
+  else ok "port $port free"; fi
+
+  info "compose file"
+  if compose config -q >/dev/null 2>&1; then ok "docker-compose.yml valid"; else err "compose config failed: $(compose config -q 2>&1 | tail -n2)"; fi
+}
+
+mcp_initialize() { # url token
+  curl -fsS -X POST "$1" \
+    -H "Authorization: Bearer $2" -H 'Content-Type: application/json' \
+    -H 'Accept: application/json, text/event-stream' \
+    -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"bin/check","version":"1"}}}'
+}
+
+live() {
+  local local_url public token body code
+  local_url="$(gateway_local_url)"
+  info "live checks"
+  curl -fsS "$local_url/healthz" >/dev/null && ok "gateway healthy at $local_url" || { err "gateway not reachable (make up?)"; return; }
+  curl -fsS "$local_url/.well-known/oauth-authorization-server" | grep -q '"code_challenge_methods_supported"' \
+    && ok "OAuth metadata served" || err "OAuth metadata missing"
+  code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$local_url/mcp")"
+  [[ "$code" == "401" ]] && ok "/mcp without token → 401" || err "/mcp without token returned $code"
+
+  token="$("$ROOT/bin/token" --quiet)" || { err "could not mint a token"; return; }
+  if body="$(mcp_initialize "$local_url/mcp" "$token")" && grep -q '"serverInfo"' <<<"$body"; then
+    ok "MCP initialize through gateway: $(grep -oE '"serverInfo":\{[^}]*\}' <<<"$body" | head -n1)"
+  else
+    err "MCP initialize through gateway failed (upstream down? make logs)"
+  fi
+
+  if public="$(public_url)"; then
+    code="$(curl -s -o /dev/null -w '%{http_code}' "$public/.well-known/oauth-protected-resource")"
+    [[ "$code" == "200" ]] && ok "public URL $public" || err "public URL $public returned $code"
+    if body="$(mcp_initialize "$public/mcp" "$token")" && grep -q '"serverInfo"' <<<"$body"; then
+      ok "MCP initialize through ngrok"
+    else
+      err "MCP initialize through ngrok failed"
+    fi
+  else
+    err "no public URL from ngrok (make logs s=ngrok)"
+  fi
+}
+
+preflight
+(( LIVE )) && live
+if (( ERRORS )); then fail "$ERRORS problem(s) found"; exit 1; fi
+ok "all checks passed"

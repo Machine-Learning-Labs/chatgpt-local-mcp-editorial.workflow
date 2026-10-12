@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# One command: setup → preflight → build & start (gateway, scribus-mcp, ngrok) → URL + token.
+#
+#   bin/up             build and start
+#   bin/up --no-build  start with existing images
+source "$(dirname "$0")/lib.sh"
+
+BUILD=(--build)
+[[ "${1:-}" == "--no-build" ]] && BUILD=()
+
+"$ROOT/bin/setup"
+"$ROOT/bin/check" || die "fix the problems above and retry"
+
+mode="$(env_get MCP_MODE container)"
+if [[ "$mode" == "host" ]]; then
+  port="$(env_get HOST_MCP_PORT 8765)"
+  (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null \
+    || warn "host MCP is not answering on :$port — start it in another terminal: make host-mcp"
+fi
+
+info "starting stack ($(compose_cmd), mode $mode)"
+compose up -d ${BUILD[@]+"${BUILD[@]}"} --remove-orphans
+
+wait_for "gateway healthy" 90 curl -fsS "$(gateway_local_url)/healthz" || die "gateway did not start (make logs s=gateway)"
+if [[ "$mode" == "container" ]]; then
+  wait_for "scribus-mcp ready" 120 compose exec -T scribus-mcp \
+    python -c "import socket; socket.create_connection(('127.0.0.1', 8000), 2)" \
+    || warn "scribus-mcp is not ready yet (make logs s=scribus-mcp)"
+fi
+wait_for "ngrok tunnel up" 60 public_url || warn "ngrok has no URL yet (make logs s=ngrok)"
+
+echo
+"$ROOT/bin/token"
+echo
+info "consent password: GATEWAY_OWNER_PASSWORD in .env · status: make check-live · stop: make down"

@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Mint an OAuth access token for the owner, without the browser flow.
+#
+#   bin/token                 token + ready-to-paste client snippets
+#   bin/token --quiet         only the token (for scripts)
+#   bin/token --ttl 86400     custom lifetime in seconds
+source "$(dirname "$0")/lib.sh"
+
+QUIET=0 ARGS=()
+while (( $# )); do
+  case "$1" in
+    -q|--quiet) QUIET=1 ;;
+    --ttl) ARGS+=(--ttl "$2"); shift ;;
+    -h|--help) sed -n '2,6p' "$0"; exit 0 ;;
+    *) die "unknown option: $1" ;;
+  esac
+  shift
+done
+
+PUBLIC="$(public_url 2>/dev/null || true)"
+[[ -n "$PUBLIC" ]] && ARGS+=(--public-url "$PUBLIC")
+
+mint() {
+  if curl -fsS -o /dev/null "$(gateway_local_url)/healthz" 2>/dev/null; then
+    compose exec -T gateway mcp-oauth-gateway token "${ARGS[@]}"
+  elif [[ -x "$ROOT/.venv/bin/mcp-oauth-gateway" ]]; then
+    GATEWAY_SECRET="$(env_get GATEWAY_SECRET)" GATEWAY_OWNER_PASSWORD="$(env_get GATEWAY_OWNER_PASSWORD)" \
+      GATEWAY_AUTO_APPROVE="$(env_get GATEWAY_AUTO_APPROVE false)" \
+      ACCESS_TOKEN_TTL="$(env_get ACCESS_TOKEN_TTL 3600)" \
+      "$ROOT/.venv/bin/mcp-oauth-gateway" token "${ARGS[@]}"
+  else
+    die "gateway is not running and .venv is missing (make up, or bin/setup --dev)"
+  fi
+}
+
+TOKEN="$(mint | tr -d '\r' | tail -n1)"
+[[ -n "$TOKEN" ]] || die "empty token"
+if (( QUIET )); then echo "$TOKEN"; exit 0; fi
+
+URL="${PUBLIC:-$(gateway_local_url)}/mcp"
+cat <<EOF
+${C_GRN}MCP URL${C_OFF}   $URL
+${C_GRN}Token${C_OFF}     $TOKEN
+
+${C_DIM}# OAuth clients (claude.ai connectors, ChatGPT, Claude Code) only need the URL;
+# they register and log in through the consent screen (owner password in .env).
+# Static clients can use the token directly:${C_OFF}
+claude mcp add --transport http scribus $URL --header "Authorization: Bearer $TOKEN"
+
+curl -s $URL -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \\
+  -H 'Accept: application/json, text/event-stream' \\
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"1"}}}'
+EOF

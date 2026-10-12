@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Print the public MCP endpoint (https://…/mcp).
+source "$(dirname "$0")/lib.sh"
+url="$(public_url)" || die "no public URL (is ngrok running? make logs s=ngrok)"
+echo "$url/mcp"

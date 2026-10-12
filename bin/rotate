@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Rotate GATEWAY_SECRET: revokes every token and registered client, then restarts the gateway.
+#   bin/rotate [--password]   --password also regenerates GATEWAY_OWNER_PASSWORD
+source "$(dirname "$0")/lib.sh"
+[[ -f "$ENV_FILE" ]] || die ".env missing: run bin/setup"
+env_set GATEWAY_SECRET "$(random_secret 64)"
+ok "new GATEWAY_SECRET"
+if [[ "${1:-}" == "--password" ]]; then
+  env_set GATEWAY_OWNER_PASSWORD "$(random_secret 20)"
+  ok "new GATEWAY_OWNER_PASSWORD (see .env)"
+fi
+if curl -fsS -o /dev/null "$(gateway_local_url)/healthz" 2>/dev/null; then
+  compose up -d --force-recreate gateway
+  ok "gateway restarted; clients must authorize again"
+fi

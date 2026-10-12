@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Run compose with the detected engine (docker/podman), .env and MCP_MODE profile.
+#   bin/compose ps | logs -f ngrok | down | ...
+source "$(dirname "$0")/lib.sh"
+compose "$@"

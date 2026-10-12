@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# Prepare a local checkout: .env with generated secrets, ngrok token, folders, dev venv.
+#
+#   bin/setup          create/complete .env (idempotent, never overwrites your values)
+#   bin/setup --dev    also create .venv with the gateway + test dependencies
+source "$(dirname "$0")/lib.sh"
+
+DEV=0
+for arg in "$@"; do
+  case "$arg" in
+    --dev) DEV=1 ;;
+    -h|--help) sed -n '2,6p' "$0"; exit 0 ;;
+    *) die "unknown option: $arg" ;;
+  esac
+done
+
+if [[ ! -f "$ENV_FILE" ]]; then
+  cp "$ROOT/.env.example" "$ENV_FILE"
+  chmod 600 "$ENV_FILE"
+  ok "created .env from .env.example"
+fi
+
+if [[ -z "$(env_get GATEWAY_SECRET)" ]]; then
+  env_set GATEWAY_SECRET "$(random_secret 64)"
+  ok "generated GATEWAY_SECRET"
+fi
+
+if [[ -z "$(env_get GATEWAY_OWNER_PASSWORD)" ]]; then
+  env_set GATEWAY_OWNER_PASSWORD "$(random_secret 20)"
+  ok "generated GATEWAY_OWNER_PASSWORD (see .env, needed on the consent screen)"
+fi
+
+if [[ -z "$(env_get NGROK_AUTHTOKEN)" ]]; then
+  token="${NGROK_AUTHTOKEN:-}"
+  if [[ -z "$token" ]] && have ngrok; then
+    cfg="$(ngrok config check 2>/dev/null | grep -oE '/[^ ]+\.yml' | head -n1 || true)"
+    for f in "$cfg" "$HOME/.config/ngrok/ngrok.yml" "$HOME/Library/Application Support/ngrok/ngrok.yml"; do
+      [[ -n "$f" && -f "$f" ]] || continue
+      token="$(grep -E '^\s*authtoken:' "$f" | head -n1 | awk '{print $2}' | tr -d '"' || true)"
+      [[ -n "$token" ]] && break
+    done
+  fi
+  if [[ -n "$token" ]]; then
+    env_set NGROK_AUTHTOKEN "$token"
+    ok "imported NGROK_AUTHTOKEN from your ngrok config"
+  else
+    warn "NGROK_AUTHTOKEN is empty: get one at https://dashboard.ngrok.com/get-started/your-authtoken"
+  fi
+fi
+
+mkdir -p "$ROOT/workspace"
+ok "workspace folder: $(env_get WORKSPACE_DIR ./workspace)"
+
+if (( DEV )); then
+  if have uv; then
+    uv venv -q --allow-existing "$ROOT/.venv"
+    uv pip install -q --python "$ROOT/.venv/bin/python" -e "${ROOT}[dev]"
+  else
+    python3 -m venv "$ROOT/.venv"
+    "$ROOT/.venv/bin/pip" install -q -e "${ROOT}[dev]"
+  fi
+  ok "dev environment ready in .venv"
+fi
+
+info "setup done — next: make check && make up"

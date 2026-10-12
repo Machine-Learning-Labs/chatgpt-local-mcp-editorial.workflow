@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Host mode: run caewa/scribus-mcp on this machine so it can use your local Scribus
+# (headless, or your open Scribus window through its bridge — see docs/scribus-mcp.md).
+# The gateway container reaches it at host.docker.internal:$HOST_MCP_PORT/mcp.
+#
+#   bin/host-mcp                   uvx scribus-mcp==$SCRIBUS_MCP_VERSION --http $BIND:$PORT
+#   bin/host-mcp --enable-run-script   extra flags are passed to scribus-mcp
+#
+# scribus-mcp has no auth of its own: keep HOST_MCP_PORT firewalled from your LAN.
+source "$(dirname "$0")/lib.sh"
+
+port="$(env_get HOST_MCP_PORT 8765)"
+bind="${HOST_MCP_BIND:-$(env_get HOST_MCP_BIND 0.0.0.0)}"
+version="$(env_get SCRIBUS_MCP_VERSION 1.3.1)"
+
+[[ "$(env_get MCP_MODE container)" == "host" ]] \
+  || warn "MCP_MODE is not 'host' in .env; the gateway will not route to this server"
+have scribus || warn "scribus not found in PATH (set SCRIBUS_BIN or SCRIBUS_MCP_AUTO_APPIMAGE=1)"
+
+# scribus-mcp 1.3.x needs mcp<2 (it imports mcp.server.fastmcp).
+if have uvx; then
+  runner=(uvx --from "scribus-mcp==${version}" --with "mcp>=1.10,<2" scribus-mcp)
+elif have scribus-mcp; then
+  runner=(scribus-mcp)
+else
+  die "install uv (https://docs.astral.sh/uv/) or: pipx install scribus-mcp==${version} 'mcp<2'"
+fi
+
+info "scribus-mcp ${version} on http://${bind}:${port}/mcp (Ctrl+C to stop)"
+exec "${runner[@]}" --http "${bind}:${port}" "$@"
