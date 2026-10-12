@@ -48,8 +48,15 @@ if [[ -z "$(env_get NGROK_AUTHTOKEN)" ]]; then
   fi
 fi
 
-mkdir -p "$ROOT/workspace"
-ok "workspace folder: $(env_get WORKSPACE_DIR ./workspace)"
+if [[ -z "$(env_get EDITORIAL_ROOT)" ]]; then
+  env_set EDITORIAL_ROOT "$HOME/Editorial"
+  ok "EDITORIAL_ROOT=$HOME/Editorial"
+fi
+root_dir="$(env_get EDITORIAL_ROOT)"
+[[ "$root_dir" == /* ]] || die "EDITORIAL_ROOT must be an absolute path (got $root_dir)"
+mkdir -p "$root_dir/inbox"
+chmod 700 "$root_dir"
+ok "editorial folder: $root_dir (drop images to place in $root_dir/inbox)"
 
 if (( DEV )); then
   if have uv; then

@@ -69,25 +69,23 @@ engine() {
   esac
 }
 
-# Profile flag and upstream address depend on MCP_MODE (compose reads UPSTREAM_* from env).
+# Compose files and profile depend on MCP_MODE:
+#   container → docker-compose.yml + profile "container" (scribus-mcp in the stack)
+#   host      → docker-compose.yml + docker-compose.host.yml (scribus-mcp = systemd user service)
 compose_env() {
-  local mode
-  mode="$(env_get MCP_MODE container)"
   export PODMAN_COMPOSE_WARNING_LOGS=false
-  if [[ "$mode" == "host" ]]; then
-    local port
-    port="$(env_get HOST_MCP_PORT 8765)"
-    PROFILE_ARGS=()
-    export UPSTREAM_URL="http://host.docker.internal:${port}/mcp"
-    export UPSTREAM_HOST_HEADER="localhost:${port}"
+  COMPOSE_ARGS=(-f "$ROOT/docker-compose.yml")
+  if [[ "$(env_get MCP_MODE container)" == "host" ]]; then
+    COMPOSE_ARGS+=(-f "$ROOT/docker-compose.host.yml")
   else
-    PROFILE_ARGS=(--profile container)
-    export UPSTREAM_URL="http://scribus-mcp:8000/mcp"
-    export UPSTREAM_HOST_HEADER="localhost:8000"
+    COMPOSE_ARGS+=(--profile container)
   fi
 }
 
-# User for scribus-mcp so files in WORKSPACE_DIR end up owned by you:
+mcp_mode() { env_get MCP_MODE container; }
+editorial_root() { env_get EDITORIAL_ROOT "$HOME/Editorial"; }
+
+# Container user so files in EDITORIAL_ROOT end up owned by you:
 # rootless podman maps container root to your user; docker needs your uid:gid.
 container_user() {
   if [[ "$(engine)" == "podman" ]] && [[ "$(podman info --format '{{.Host.Security.Rootless}}' 2>/dev/null)" == "true" ]]; then
@@ -104,7 +102,7 @@ compose() {
   CONTAINER_USER="${CONTAINER_USER:-$(container_user)}"
   export CONTAINER_USER
   # shellcheck disable=SC2086
-  $cmd --env-file "$ENV_FILE" -f "$ROOT/docker-compose.yml" ${PROFILE_ARGS[@]+"${PROFILE_ARGS[@]}"} "$@"
+  $cmd --env-file "$ENV_FILE" "${COMPOSE_ARGS[@]}" "$@"
 }
 
 gateway_local_url() { echo "http://127.0.0.1:$(env_get GATEWAY_PORT 8080)"; }

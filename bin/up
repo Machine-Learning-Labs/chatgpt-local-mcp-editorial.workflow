@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
-# One command: setup → preflight → build & start (gateway, scribus-mcp, ngrok) → URL + token.
+# One command: setup → preflight → (host mode: scribus-mcp service) → stack → URL + token.
 #
 #   bin/up             build and start
 #   bin/up --no-build  start with existing images
+#
+# Host mode: if the systemd unit is not installed, scribus-mcp is started as a TRANSIENT
+# unit and bin/down removes it again, so nothing stays on the machine between sessions.
 source "$(dirname "$0")/lib.sh"
 
 BUILD=(--build)
@@ -11,11 +14,9 @@ BUILD=(--build)
 "$ROOT/bin/setup"
 "$ROOT/bin/check" || die "fix the problems above and retry"
 
-mode="$(env_get MCP_MODE container)"
+mode="$(mcp_mode)"
 if [[ "$mode" == "host" ]]; then
-  port="$(env_get HOST_MCP_PORT 8765)"
-  (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null \
-    || warn "host MCP is not answering on :$port — start it in another terminal: make host-mcp"
+  "$ROOT/bin/host-service" start
 fi
 
 info "starting stack ($(compose_cmd), mode $mode)"
@@ -32,4 +33,7 @@ wait_for "ngrok tunnel up" 60 public_url || warn "ngrok has no URL yet (make log
 echo
 "$ROOT/bin/token"
 echo
+if [[ "$mode" == "host" ]]; then
+  info "open your Scribus with the bridge: make scribus  ·  files live in $(editorial_root)"
+fi
 info "consent password: GATEWAY_OWNER_PASSWORD in .env · status: make check-live · stop: make down"

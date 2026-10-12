@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Open your desktop Scribus with the scribus-mcp bridge loaded (MCP_MODE=host).
+#
+#   bin/scribus                 start Scribus + bridge
+#   bin/scribus file.sla        …and open that document (must be under EDITORIAL_ROOT)
+#
+# The bridge needs a Qt binding importable by Scribus' embedded (system) Python, matching
+# the Qt Scribus was built with: Scribus 1.6 on Ubuntu/Debian → Qt5 → python3-pyqt5.
+source "$(dirname "$0")/lib.sh"
+
+have scribus || die "scribus is not installed (sudo apt install scribus)"
+spy="$("$ROOT/bin/host-service" bridge-path)" || die "could not locate the bridge script"
+
+qt="$(ldd "$(command -v scribus)" 2>/dev/null | grep -oE 'libQt[56]Core' | head -n1 || true)"
+want="PyQt5"; [[ "$qt" == "libQt6Core" ]] && want="PyQt6"
+if ! /usr/bin/python3 -c "import ${want}.QtCore" 2>/dev/null; then
+  warn "${want} missing for Scribus' Python: the GUI will freeze while the bridge waits."
+  warn "fix once with: sudo apt install python3-$(tr '[:upper:]' '[:lower:]' <<<"$want")"
+fi
+
+disc="${XDG_RUNTIME_DIR:-/tmp}/scribus-mcp/scribus-mcp.json"
+if [[ -f "$disc" ]] && pid="$(grep -oE '"pid": *[0-9]+' "$disc" | grep -oE '[0-9]+$')" \
+   && kill -0 "$pid" 2>/dev/null; then
+  ok "a Scribus with the bridge is already running (pid $pid)"
+  exit 0
+fi
+
+before="$(stat -c %Y "$disc" 2>/dev/null || echo 0)"
+args=(-py "$spy")
+[[ -n "${1:-}" ]] && args+=("$1")
+setsid scribus "${args[@]}" >/dev/null 2>&1 < /dev/null &
+fresh() { [[ "$(stat -c %Y "$disc" 2>/dev/null || echo 0)" != "$before" ]]; }
+for _ in $(seq 1 40); do fresh && break; sleep 0.5; done
+if fresh; then
+  ok "Scribus is up with the bridge ($(tail -n1 "${disc%/*}/bridge.log" 2>/dev/null | sed 's/.*: //'))"
+else
+  warn "Scribus started but the bridge has not registered yet (close the New Document wizard)"
+fi

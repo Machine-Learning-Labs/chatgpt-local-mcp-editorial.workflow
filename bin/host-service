@@ -1,0 +1,182 @@
+#!/usr/bin/env bash
+# scribus-mcp as a systemd *user* service on this machine (MCP_MODE=host).
+#
+#   bin/host-service start       run it now as a TRANSIENT unit (systemd-run): nothing is
+#                                written to ~/.config, it disappears on stop / logout / reboot
+#   bin/host-service stop        stop it (transient: gone; installed: stays installed)
+#   bin/host-service install [--enable]
+#                                write ~/.config/systemd/user/<unit>.service
+#                                (--enable: also start it at every login)
+#   bin/host-service uninstall   stop, disable, remove the unit file AND the runtime venv
+#   bin/host-service status | logs | bridge-path
+#
+# Isolation: scribus-mcp runs from its own venv (uv-managed CPython, never conda or the
+# system Python) under ${XDG_DATA_HOME:-~/.local/share}/editorial-workflow/. It listens on
+# 127.0.0.1 only; the gateway (host network) is the only door to it.
+source "$(dirname "$0")/lib.sh"
+
+UNIT="${HOST_SERVICE_NAME:-editorial-scribus-mcp}"
+UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
+UNIT_FILE="$UNIT_DIR/$UNIT.service"
+VERSION="$(env_get SCRIBUS_MCP_VERSION 1.3.1)"
+PORT="$(env_get HOST_MCP_PORT 8765)"
+DATA_DIR="${EWF_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/editorial-workflow}"
+VENV="$DATA_DIR/scribus-mcp-$VERSION"
+ROOT_DIR="$(editorial_root)"
+
+# Sandboxing that works for unprivileged user units without breaking the Scribus GUI
+# (which may be auto-launched as a child and needs X11/Wayland sockets).
+HARDENING=(
+  NoNewPrivileges=yes
+  UMask=0077
+  LockPersonality=yes
+  RestrictRealtime=yes
+  RestrictSUIDSGID=yes
+  SystemCallArchitectures=native
+  "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK"
+  Restart=on-failure
+  RestartSec=3
+  # Only stop scribus-mcp; a Scribus window it auto-launched keeps your unsaved work.
+  KillMode=process
+)
+ENVIRONMENT=(
+  "PATH=/usr/local/bin:/usr/bin:/bin"
+  "SCRIBUS_MCP_RUN_SCRIPT=0"
+  "SCRIBUS_MCP_LOG_LEVEL=$(env_get SCRIBUS_MCP_LOG_LEVEL INFO)"
+)
+GUI_VARS=(DISPLAY WAYLAND_DISPLAY XAUTHORITY XDG_RUNTIME_DIR XDG_SESSION_TYPE DBUS_SESSION_BUS_ADDRESS)
+
+have systemctl || die "systemd is required for host mode"
+
+ensure_runtime() {
+  if [[ -x "$VENV/bin/scribus-mcp" ]]; then return; fi
+  have uv || die "uv is needed once to build the runtime: https://docs.astral.sh/uv/getting-started/installation/"
+  info "building runtime $VENV (uv-managed Python, isolated from conda/system)"
+  mkdir -p "$DATA_DIR"
+  # env -u: make sure an active conda/venv cannot leak into the build.
+  env -u VIRTUAL_ENV -u CONDA_PREFIX -u PYTHONPATH -u PYTHONHOME \
+    uv venv --quiet --no-config --python 3.12 --python-preference only-managed "$VENV"
+  # scribus-mcp 1.3.x imports mcp.server.fastmcp, removed in mcp 2.x.
+  env -u VIRTUAL_ENV -u CONDA_PREFIX -u PYTHONPATH -u PYTHONHOME \
+    uv pip install --quiet --no-config --python "$VENV/bin/python" \
+    "scribus-mcp==${VERSION}" "mcp>=1.10,<2"
+  ok "runtime ready: $("$VENV/bin/scribus-mcp" --help >/dev/null && echo "scribus-mcp $VERSION")"
+}
+
+exec_start() { echo "$VENV/bin/scribus-mcp --http 127.0.0.1:$PORT"; }
+
+is_installed() { [[ -f "$UNIT_FILE" ]]; }
+is_active() { systemctl --user is-active --quiet "$UNIT"; }
+is_transient() {
+  systemctl --user show -p FragmentPath --value "$UNIT" 2>/dev/null | grep -q '/transient/'
+}
+
+port_busy() { (exec 3<>"/dev/tcp/127.0.0.1/$PORT") 2>/dev/null; }
+
+wait_listening() {
+  for _ in $(seq 1 30); do port_busy && return 0; sleep 0.5; done
+  return 1
+}
+
+cmd_start() {
+  if is_active; then ok "$UNIT already running on 127.0.0.1:$PORT"; return; fi
+  port_busy && die "port $PORT is already in use (HOST_MCP_PORT)"
+  mkdir -p "$ROOT_DIR"
+  ensure_runtime
+  if is_installed; then
+    systemctl --user start "$UNIT"
+  else
+    local args=(--user --unit="$UNIT" --collect --quiet
+      --description="editorial.workflow scribus-mcp (transient)"
+      --working-directory="$ROOT_DIR")
+    local p v
+    for p in "${HARDENING[@]}"; do args+=(--property="$p"); done
+    for v in "${ENVIRONMENT[@]}"; do args+=(--setenv="$v"); done
+    for v in "${GUI_VARS[@]}"; do [[ -n "${!v:-}" ]] && args+=(--setenv="$v=${!v}"); done
+    # shellcheck disable=SC2046
+    systemd-run "${args[@]}" $(exec_start)
+  fi
+  wait_listening || die "scribus-mcp did not start: bin/host-service logs"
+  ok "$UNIT listening on 127.0.0.1:$PORT ($(is_installed && echo installed || echo transient))"
+}
+
+cmd_stop() {
+  if ! is_active; then ok "$UNIT is not running"; return; fi
+  systemctl --user stop "$UNIT"
+  ok "$UNIT stopped"
+}
+
+cmd_install() {
+  local enable=0
+  [[ "${1:-}" == "--enable" ]] && enable=1
+  if is_active && is_transient; then systemctl --user stop "$UNIT"; fi
+  mkdir -p "$ROOT_DIR" "$UNIT_DIR"
+  ensure_runtime
+  {
+    echo "# Managed by editorial.workflow bin/host-service — remove with: bin/host-service uninstall"
+    echo "[Unit]"
+    echo "Description=editorial.workflow scribus-mcp (127.0.0.1:$PORT)"
+    echo "After=graphical-session.target"
+    echo
+    echo "[Service]"
+    echo "ExecStart=$(exec_start)"
+    echo "WorkingDirectory=$ROOT_DIR"
+    local v
+    for v in "${ENVIRONMENT[@]}"; do echo "Environment=\"$v\""; done
+    echo "PassEnvironment=${GUI_VARS[*]}"
+    for v in "${HARDENING[@]}"; do echo "$v"; done
+    echo
+    echo "[Install]"
+    echo "WantedBy=default.target"
+  } >"$UNIT_FILE"
+  chmod 600 "$UNIT_FILE"
+  # Make the desktop session's display variables visible to the user manager.
+  systemctl --user import-environment "${GUI_VARS[@]}" 2>/dev/null || true
+  systemctl --user daemon-reload
+  ok "installed $UNIT_FILE"
+  if (( enable )); then
+    systemctl --user enable --now "$UNIT" >/dev/null
+    ok "enabled: starts at login"
+  fi
+}
+
+cmd_uninstall() {
+  if is_active; then systemctl --user stop "$UNIT"; fi
+  if is_installed; then
+    systemctl --user disable "$UNIT" >/dev/null 2>&1 || true
+    rm -f "$UNIT_FILE"
+    systemctl --user daemon-reload
+    ok "removed $UNIT_FILE"
+  fi
+  systemctl --user reset-failed "$UNIT" >/dev/null 2>&1 || true
+  if [[ -d "$DATA_DIR" ]]; then
+    rm -rf "$DATA_DIR"
+    ok "removed runtime $DATA_DIR"
+  fi
+  ok "nothing of $UNIT is left on this machine (your $ROOT_DIR is untouched)"
+}
+
+cmd_status() {
+  local state="stopped"
+  is_active && state="running ($(is_transient && echo transient || echo installed))"
+  echo "unit:     $UNIT — $state"
+  echo "file:     $(is_installed && echo "$UNIT_FILE" || echo "not installed")"
+  echo "runtime:  $([[ -x "$VENV/bin/scribus-mcp" ]] && echo "$VENV" || echo "not built")"
+  echo "endpoint: http://127.0.0.1:$PORT/mcp"
+  echo "root:     $ROOT_DIR"
+  local disc="${XDG_RUNTIME_DIR:-/tmp}/scribus-mcp/scribus-mcp.json"
+  echo "bridge:   $([[ -f "$disc" ]] && echo "discovery file present ($disc)" || echo "no Scribus bridge running (make scribus)")"
+}
+
+case "${1:-}" in
+  start) cmd_start ;;
+  stop) cmd_stop ;;
+  restart) cmd_stop; cmd_start ;;
+  install) shift; cmd_install "$@" ;;
+  uninstall) cmd_uninstall ;;
+  status) cmd_status ;;
+  logs) exec journalctl --user -u "$UNIT" -f -n 100 ;;
+  bridge-path) ensure_runtime >/dev/null; "$VENV/bin/scribus-mcp" --print-bridge-path ;;
+  is-transient) is_active && is_transient ;;
+  *) sed -n '2,15p' "$0"; exit 2 ;;
+esac

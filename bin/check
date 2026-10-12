@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Preflight (default) and live end-to-end checks.
 #
-#   bin/check          tools, .env, ports, compose file
-#   bin/check --live   running stack: health, OAuth metadata, 401 challenge, MCP initialize
-#                      through the gateway and through the public ngrok URL
+#   bin/check          tools, .env, editorial folder, host prerequisites, ports, compose file
+#   bin/check --live   running stack: health, OAuth metadata, 401 challenge, policy, MCP
+#                      initialize through the gateway and through the public ngrok URL,
+#                      host mode: service bound to loopback, Scribus bridge reachable
 source "$(dirname "$0")/lib.sh"
 
 LIVE=0
@@ -22,7 +23,7 @@ preflight() {
   if have scribus; then
     ok "local $(scribus --version 2>/dev/null | grep -i version | head -n1 || echo Scribus) (used in host mode)"
   else
-    [[ "$(env_get MCP_MODE container)" == "host" ]] && err "MCP_MODE=host but scribus is not installed" \
+    [[ "$(mcp_mode)" == "host" ]] && err "MCP_MODE=host but scribus is not installed" \
       || warn "scribus not installed locally (fine in container mode)"
   fi
 
@@ -41,16 +42,21 @@ preflight() {
   [[ -n "$(env_get NGROK_DOMAIN)" ]] && ok "static domain $(env_get NGROK_DOMAIN)" \
     || warn "no NGROK_DOMAIN: the URL changes on each restart (clients must reconnect)"
 
-  local mode; mode="$(env_get MCP_MODE container)"
+  local root; root="$(editorial_root)"
+  if [[ "$root" != /* ]]; then err "EDITORIAL_ROOT must be absolute (got $root)"
+  elif [[ -d "$root" ]]; then
+    local rperm; rperm="$(stat -c %a "$root")"
+    [[ "$rperm" == 700 ]] && ok "editorial folder $root (700)" || warn "editorial folder $root has permissions $rperm (chmod 700)"
+  else err "editorial folder $root missing: run bin/setup"; fi
+  [[ -z "$(env_get GATEWAY_ALLOWED_CLIENT_CIDRS)" ]] \
+    && warn "GATEWAY_ALLOWED_CLIENT_CIDRS empty: any IP can call /mcp with a valid token (see docs/security.md)"
+
+  local mode; mode="$(mcp_mode)"
   case "$mode" in
     container) ok "MCP mode container (scribus-mcp $(env_get SCRIBUS_MCP_VERSION 1.3.1), headless Scribus)" ;;
-    host) ok "MCP mode host on port $(env_get HOST_MCP_PORT 8765) (start it with make host-mcp)"
-          have uvx || have scribus-mcp || err "host mode needs uv (uvx) or scribus-mcp installed" ;;
+    host) host_preflight ;;
     *) err "MCP_MODE must be container or host (got $mode)" ;;
   esac
-
-  [[ "$(env_get SCRIBUS_MCP_RUN_SCRIPT 0)" == "1" ]] \
-    && warn "SCRIBUS_MCP_RUN_SCRIPT=1: any authorized client can run arbitrary Python"
 
   info "ports"
   local port; port="$(env_get GATEWAY_PORT 8080)"
@@ -62,11 +68,65 @@ preflight() {
   if compose config -q >/dev/null 2>&1; then ok "docker-compose.yml valid"; else err "compose config failed: $(compose config -q 2>&1 | tail -n2)"; fi
 }
 
+host_preflight() {
+  ok "MCP mode host: scribus-mcp as systemd user service on 127.0.0.1:$(env_get HOST_MCP_PORT 8765)"
+  [[ "$(uname -s)" == Linux ]] || err "host mode needs Linux (network_mode: host)"
+  have systemd-run && systemctl --user show-environment >/dev/null 2>&1 \
+    && ok "systemd user manager available" || err "systemd user manager not available"
+  local data="${EWF_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/editorial-workflow}"
+  if [[ -x "$data/scribus-mcp-$(env_get SCRIBUS_MCP_VERSION 1.3.1)/bin/scribus-mcp" ]]; then
+    ok "scribus-mcp runtime built ($data)"
+  elif have uv; then ok "uv available to build the runtime on first start"
+  else err "uv is needed once to build the scribus-mcp runtime"; fi
+  if have scribus; then
+    local qt want
+    qt="$(ldd "$(command -v scribus)" 2>/dev/null | grep -oE 'libQt[56]Core' | head -n1 || true)"
+    want=PyQt5; [[ "$qt" == libQt6Core ]] && want=PyQt6
+    /usr/bin/python3 -c "import ${want}.QtCore" 2>/dev/null \
+      && ok "${want} available to Scribus' Python (bridge keeps the GUI responsive)" \
+      || warn "${want} missing: Scribus freezes while the bridge runs → sudo apt install python3-$(tr '[:upper:]' '[:lower:]' <<<"$want")"
+  fi
+  if "$ROOT/bin/host-service" is-transient 2>/dev/null || systemctl --user is-active --quiet "${HOST_SERVICE_NAME:-editorial-scribus-mcp}"; then
+    ok "scribus-mcp service already running"
+  elif (exec 3<>"/dev/tcp/127.0.0.1/$(env_get HOST_MCP_PORT 8765)") 2>/dev/null; then
+    err "port $(env_get HOST_MCP_PORT 8765) is busy (HOST_MCP_PORT)"
+  fi
+}
+
 mcp_initialize() { # url token
   curl -fsS -X POST "$1" \
     -H "Authorization: Bearer $2" -H 'Content-Type: application/json' \
     -H 'Accept: application/json, text/event-stream' \
     -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"bin/check","version":"1"}}}'
+}
+
+mcp_call() { # url token params-json — stateless call (no session) is enough for the policy
+  curl -sS -X POST "$1" \
+    -H "Authorization: Bearer $2" -H 'Content-Type: application/json' \
+    -H 'Accept: application/json, text/event-stream' \
+    -d "{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"tools/call\",\"params\":$3}"
+}
+
+host_live() {
+  local port listeners disc
+  port="$(env_get HOST_MCP_PORT 8765)"
+  "$ROOT/bin/host-service" status | sed 's/^/     /'
+  listeners="$(ss -Hltn "sport = :$port" 2>/dev/null | awk '{print $4}')"
+  if [[ -z "$listeners" ]]; then err "scribus-mcp is not listening on :$port"
+  elif grep -qvE '^(127\.0\.0\.1|\[::1\]):' <<<"$listeners"; then err "scribus-mcp listens beyond loopback: $listeners"
+  else ok "scribus-mcp bound to loopback only ($listeners)"; fi
+  listeners="$(ss -Hltn "sport = :$(env_get GATEWAY_PORT 8080)" 2>/dev/null | awk '{print $4}')"
+  grep -qvE '^(127\.0\.0\.1|\[::1\]):' <<<"$listeners" && err "gateway listens beyond loopback: $listeners" \
+    || ok "gateway bound to loopback only"
+  disc="${XDG_RUNTIME_DIR:-/tmp}/scribus-mcp/scribus-mcp.json"
+  if [[ -f "$disc" ]]; then
+    [[ "$(stat -c %a "$disc")" == 600 ]] && ok "bridge discovery file is private (600)" || err "bridge discovery file is not 600"
+    grep -q 'qt=NONE\|no Qt binding' <(tail -n3 "${disc%/*}/bridge.log" 2>/dev/null) \
+      && warn "bridge running without Qt binding (GUI freezes): sudo apt install python3-pyqt5" \
+      || ok "bridge running with a Qt binding"
+  else
+    warn "no Scribus bridge running: make scribus (calls will use headless Scribus)"
+  fi
 }
 
 live() {
@@ -79,16 +139,23 @@ live() {
   code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$local_url/mcp")"
   [[ "$code" == "401" ]] && ok "/mcp without token → 401" || err "/mcp without token returned $code"
 
-  token="$("$ROOT/bin/token" --quiet)" || { err "could not mint a token"; return; }
+  token="$("$ROOT/bin/token" --quiet --local)" || { err "could not mint a token"; return; }
   if body="$(mcp_initialize "$local_url/mcp" "$token")" && grep -q '"serverInfo"' <<<"$body"; then
     ok "MCP initialize through gateway: $(grep -oE '"serverInfo":\{[^}]*\}' <<<"$body" | head -n1)"
   else
     err "MCP initialize through gateway failed (upstream down? make logs)"
   fi
+  body="$(mcp_call "$local_url/mcp" "$token" '{"name":"save_document_as","arguments":{"path":"/etc/editorial-check.sla"}}' || true)"
+  grep -q 'Refused' <<<"$body" && ok "policy: path outside $(editorial_root) refused" \
+    || err "policy did NOT refuse a path outside the editorial folder"
+  body="$(mcp_call "$local_url/mcp" "$token" '{"name":"run_script","arguments":{}}' || true)"
+  grep -q 'Refused' <<<"$body" && ok "policy: run_script refused" || err "policy did NOT refuse run_script"
+  [[ "$(mcp_mode)" == "host" ]] && host_live "$local_url" "$token"
 
   if public="$(public_url)"; then
     code="$(curl -s -o /dev/null -w '%{http_code}' "$public/.well-known/oauth-protected-resource")"
     [[ "$code" == "200" ]] && ok "public URL $public" || err "public URL $public returned $code"
+    token="$("$ROOT/bin/token" --quiet)"
     if body="$(mcp_initialize "$public/mcp" "$token")" && grep -q '"serverInfo"' <<<"$body"; then
       ok "MCP initialize through ngrok"
     else
