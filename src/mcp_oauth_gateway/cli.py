@@ -1,0 +1,78 @@
+"""Command line entry point: ``mcp-oauth-gateway serve | token``."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+
+from .config import Settings
+from .oauth import OAuthServer
+
+
+def _serve(args: argparse.Namespace, settings: Settings) -> int:
+    import uvicorn
+
+    from .app import create_app
+
+    uvicorn.run(
+        create_app(settings),
+        host=args.host or settings.host,
+        port=args.port or settings.port,
+        proxy_headers=True,
+        forwarded_allow_ips="*",
+        log_level=args.log_level,
+    )
+    return 0
+
+
+def _token(args: argparse.Namespace, settings: Settings) -> int:
+    oauth = OAuthServer(settings)
+    issuer = (args.public_url or settings.public_url or "").rstrip("/") or None
+    token = oauth.mint_access_token(ttl=args.ttl, subject=args.subject, issuer=issuer)
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "access_token": token,
+                    "token_type": "Bearer",
+                    "expires_in": args.ttl or settings.access_token_ttl,
+                }
+            )
+        )
+    else:
+        print(token)
+    return 0
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="mcp-oauth-gateway", description=__doc__)
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    serve = sub.add_parser("serve", help="run the OAuth gateway")
+    serve.add_argument("--host")
+    serve.add_argument("--port", type=int)
+    serve.add_argument("--log-level", default="info")
+    serve.set_defaults(func=_serve)
+
+    token = sub.add_parser("token", help="mint an access token for the owner (no browser flow)")
+    token.add_argument("--ttl", type=int, help="lifetime in seconds (default ACCESS_TOKEN_TTL)")
+    token.add_argument("--subject", default="owner")
+    token.add_argument("--public-url", help="issuer/audience, default PUBLIC_URL")
+    token.add_argument("--json", action="store_true", help="print an OAuth token response")
+    token.set_defaults(func=_token)
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    try:
+        settings = Settings.from_env()
+    except ValueError as exc:
+        print(f"configuration error: {exc}", file=sys.stderr)
+        return 2
+    return args.func(args, settings)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
