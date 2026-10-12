@@ -31,7 +31,7 @@ jobs:
       - run: shellcheck -x bin/*
       - name: compose config renders
         run: |
-          printf 'GATEWAY_SECRET=%s\nGATEWAY_OWNER_PASSWORD=x\nNGROK_AUTHTOKEN=x\nEDITORIAL_ROOT=/tmp/Editorial\n' "$(openssl rand -hex 32)" > ci.env
+          printf 'GATEWAY_SECRET=%s\nGATEWAY_OWNER_PASSWORD=x\nNGROK_AUTHTOKEN=x\nEDITORIAL_ROOT=/tmp/Editorial\nASSETS_SECRET=%s\n' "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" > ci.env
           for mode in host container; do
             sed -i '/^MCP_MODE=/d' ci.env && echo "MCP_MODE=$mode" >> ci.env
             ENV_FILE=ci.env bin/compose config -q
@@ -43,6 +43,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker build -f containers/gateway/Containerfile -t gateway .
       - run: docker build -f containers/scribus-mcp/Containerfile -t scribus-mcp .
+      - run: docker build -f containers/assets/Containerfile -t assets .
       - name: scribus-mcp answers initialize
         run: |
           docker run -d --name smcp -p 127.0.0.1:8000:8000 scribus-mcp
