@@ -1,0 +1,12 @@
+# Keep secrets and local state out of the build context (also read by podman via .containerignore).
+.env
+.env.*
+.git
+.venv
+workspace
+memory-bank
+docs
+tests
+**/__pycache__
+.pytest_cache
+.ruff_cache
