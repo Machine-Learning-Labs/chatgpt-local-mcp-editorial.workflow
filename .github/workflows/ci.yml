@@ -31,8 +31,11 @@ jobs:
       - run: shellcheck -x bin/*
       - name: compose config renders
         run: |
-          printf 'GATEWAY_SECRET=%s\nGATEWAY_OWNER_PASSWORD=x\nNGROK_AUTHTOKEN=x\n' "$(openssl rand -hex 32)" > ci.env
-          ENV_FILE=ci.env bin/compose config -q
+          printf 'GATEWAY_SECRET=%s\nGATEWAY_OWNER_PASSWORD=x\nNGROK_AUTHTOKEN=x\nEDITORIAL_ROOT=/tmp/Editorial\n' "$(openssl rand -hex 32)" > ci.env
+          for mode in host container; do
+            sed -i '/^MCP_MODE=/d' ci.env && echo "MCP_MODE=$mode" >> ci.env
+            ENV_FILE=ci.env bin/compose config -q
+          done
 
   images:
     runs-on: ubuntu-latest
