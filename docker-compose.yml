@@ -1,0 +1,71 @@
+# editorial.workflow — Scribus MCP (caewa/scribus-mcp) published over HTTPS with OAuth 2.1.
+#
+#   internet ──ngrok──▶ gateway:8080 (OAuth 2.1 + bearer check) ──▶ scribus-mcp:8000/mcp
+#
+# Works with `docker compose` and `podman compose` / `podman-compose`.
+# Use `make up` (bin/up) rather than calling compose directly: it prepares .env,
+# selects the profile from MCP_MODE and prints the public URL and a token.
+
+name: editorial-workflow
+
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: containers/gateway/Containerfile
+    image: localhost/editorial-workflow/gateway:dev
+    restart: unless-stopped
+    environment:
+      GATEWAY_SECRET: ${GATEWAY_SECRET:?run bin/setup first}
+      GATEWAY_OWNER_PASSWORD: ${GATEWAY_OWNER_PASSWORD:-}
+      GATEWAY_AUTO_APPROVE: ${GATEWAY_AUTO_APPROVE:-false}
+      GATEWAY_CORS_ORIGINS: ${GATEWAY_CORS_ORIGINS:-*}
+      PUBLIC_URL: ${PUBLIC_URL:-}
+      UPSTREAM_URL: ${UPSTREAM_URL:-http://scribus-mcp:8000/mcp}
+      UPSTREAM_HOST_HEADER: ${UPSTREAM_HOST_HEADER:-localhost:8000}
+      ACCESS_TOKEN_TTL: ${ACCESS_TOKEN_TTL:-3600}
+      REFRESH_TOKEN_TTL: ${REFRESH_TOKEN_TTL:-2592000}
+    ports:
+      - "127.0.0.1:${GATEWAY_PORT:-8080}:8080"
+    extra_hosts:
+      # Lets host mode reach an MCP running on your desktop (docker and podman >= 5).
+      - "host.docker.internal:host-gateway"
+
+  scribus-mcp:
+    profiles: ["container"]
+    build:
+      context: .
+      dockerfile: containers/scribus-mcp/Containerfile
+      args:
+        SCRIBUS_MCP_VERSION: ${SCRIBUS_MCP_VERSION:-1.3.1}
+    image: localhost/editorial-workflow/scribus-mcp:${SCRIBUS_MCP_VERSION:-1.3.1}
+    restart: unless-stopped
+    # Set by bin/lib.sh so files written to WORKSPACE_DIR belong to you (docker/podman).
+    user: "${CONTAINER_USER:-10001:10001}"
+    environment:
+      HOME: /tmp/scribus-home
+      SCRIBUS_MCP_RUN_SCRIPT: ${SCRIBUS_MCP_RUN_SCRIPT:-0}
+      SCRIBUS_MCP_LOG_LEVEL: ${SCRIBUS_MCP_LOG_LEVEL:-INFO}
+    volumes:
+      # Documents the MCP can open/save; use /workspace/... paths in prompts.
+      - ${WORKSPACE_DIR:-./workspace}:/workspace:z
+    # Not published on the host: only the gateway can reach it.
+    expose:
+      - "8000"
+
+  ngrok:
+    image: ${NGROK_IMAGE:-docker.io/ngrok/ngrok:latest}
+    restart: unless-stopped
+    depends_on:
+      - gateway
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:?set NGROK_AUTHTOKEN in .env (bin/setup imports it from ngrok config)}
+      NGROK_DOMAIN: ${NGROK_DOMAIN:-}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        printf 'version: "2"\nweb_addr: 0.0.0.0:4040\n' > /tmp/ngrok.yml &&
+        exec ngrok http http://gateway:8080 --config /tmp/ngrok.yml --log stdout --log-format logfmt
+        $${NGROK_DOMAIN:+--url=https://$$NGROK_DOMAIN}
+    ports:
+      - "127.0.0.1:${NGROK_INSPECT_PORT:-4040}:4040"
