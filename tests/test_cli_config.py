@@ -57,6 +57,12 @@ def test_cli_token_defaults_to_local_resource(env, capsys):
     assert claims["aud"] == "http://127.0.0.1:8080/mcp"
 
 
+def test_cli_token_for_assets_resource(env, capsys):
+    assert main(["token", "--public-url", "https://t.example", "--resource", "/assets/mcp"]) == 0
+    claims = Signer(SECRET).decode(capsys.readouterr().out.strip(), typ="access")
+    assert claims["aud"] == "https://t.example/assets/mcp"
+
+
 def test_policy_settings_from_env():
     settings = Settings.from_env(
         {
