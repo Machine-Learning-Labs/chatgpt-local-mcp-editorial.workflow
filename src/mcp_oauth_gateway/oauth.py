@@ -143,18 +143,32 @@ class OAuthServer:
         self.limiter = RateLimiter()
 
     # ------------------------------------------------------------------ metadata
-    def resource_url(self, request: Request) -> str:
-        return f"{base_url(request, self.settings)}/mcp"
+    @property
+    def resources(self) -> dict[str, str]:
+        """Protected resources served by this gateway: path → display name."""
+        found = {"/mcp": "Scribus MCP"}
+        if self.settings.assets_upstream_url:
+            found["/assets/mcp"] = "Editorial Assets"
+        return found
+
+    def resource_url(self, request: Request, path: str = "/mcp") -> str:
+        return f"{base_url(request, self.settings)}{path}"
+
+    def known_resource(self, request: Request, resource: str) -> bool:
+        return any(same_resource(resource, self.resource_url(request, p)) for p in self.resources)
 
     async def protected_resource_metadata(self, request: Request) -> Response:
         issuer = base_url(request, self.settings)
+        path = "/assets/mcp" if request.url.path.endswith("/assets/mcp") else "/mcp"
+        if path not in self.resources:
+            return JSONResponse({"error": "not_found"}, status_code=404)
         return JSONResponse(
             {
-                "resource": f"{issuer}/mcp",
+                "resource": f"{issuer}{path}",
                 "authorization_servers": [issuer],
                 "bearer_methods_supported": ["header"],
                 "scopes_supported": list(self.settings.scopes),
-                "resource_name": "Scribus MCP",
+                "resource_name": self.resources[path],
             }
         )
 
@@ -278,7 +292,7 @@ class OAuthServer:
         if unknown:
             return fail("invalid_scope", f"unknown scope(s): {' '.join(sorted(unknown))}")
         resource = q.get("resource")
-        if resource and not same_resource(resource, self.resource_url(request)):
+        if resource and not self.known_resource(request, resource):
             return fail("invalid_target", "resource is not served by this authorization server")
 
         request_token = self.signer.issue(

@@ -60,6 +60,10 @@ class Settings:
     owner_password: str
     upstream_url: str = "http://scribus-mcp:8000/mcp"
     upstream_host_header: str = ""
+    # Second protected resource (Editorial Assets MCP) at /assets/mcp; empty = disabled.
+    assets_upstream_url: str = ""
+    assets_upstream_host_header: str = ""
+    assets_max_upload_bytes: int = 31 * 1024 * 1024
     public_url: str = ""
     access_token_ttl: int = 3600
     refresh_token_ttl: int = 30 * 24 * 3600
@@ -101,6 +105,11 @@ class Settings:
             owner_password=env.get("GATEWAY_OWNER_PASSWORD", ""),
             upstream_url=env.get("UPSTREAM_URL", cls.upstream_url),
             upstream_host_header=env.get("UPSTREAM_HOST_HEADER", ""),
+            assets_upstream_url=env.get("ASSETS_UPSTREAM_URL", "").rstrip("/"),
+            assets_upstream_host_header=env.get("ASSETS_UPSTREAM_HOST_HEADER", ""),
+            assets_max_upload_bytes=_int(
+                env.get("ASSETS_MAX_UPLOAD_BYTES"), cls.assets_max_upload_bytes
+            ),
             public_url=env.get("PUBLIC_URL", "").rstrip("/"),
             access_token_ttl=_int(env.get("ACCESS_TOKEN_TTL"), cls.access_token_ttl),
             refresh_token_ttl=_int(env.get("REFRESH_TOKEN_TTL"), cls.refresh_token_ttl),

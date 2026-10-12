@@ -38,7 +38,10 @@ def _token(args: argparse.Namespace, settings: Settings) -> int:
     issuer = (args.public_url or settings.public_url or f"http://127.0.0.1:{settings.port}").rstrip(
         "/"
     )
-    token = oauth.mint_access_token(ttl=args.ttl, subject=args.subject, issuer=issuer)
+    resource = "/" + args.resource.strip("/")
+    token = oauth.mint_access_token(
+        ttl=args.ttl, subject=args.subject, issuer=issuer, audience=f"{issuer}{resource}"
+    )
     if args.json:
         print(
             json.dumps(
@@ -68,6 +71,9 @@ def build_parser() -> argparse.ArgumentParser:
     token.add_argument("--ttl", type=int, help="lifetime in seconds (default ACCESS_TOKEN_TTL)")
     token.add_argument("--subject", default="owner")
     token.add_argument("--public-url", help="issuer/audience, default PUBLIC_URL")
+    token.add_argument(
+        "--resource", default="/mcp", help="protected resource path: /mcp or /assets/mcp"
+    )
     token.add_argument("--json", action="store_true", help="print an OAuth token response")
     token.set_defaults(func=_token)
     return parser

@@ -17,7 +17,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from . import __version__
 from .config import Settings
 from .oauth import OAuthServer
-from .proxy import McpProxy, client_ip, ip_allowed
+from .proxy import McpProxy, UploadPassthrough, client_ip, ip_allowed
 
 audit = logging.getLogger("mcp_oauth_gateway.audit")
 UPSTREAM_TIMEOUT = httpx.Timeout(connect=10.0, read=None, write=60.0, pool=10.0)
@@ -90,6 +90,17 @@ def create_app(
         state.clear()
 
     proxy = McpProxy(oauth, lambda: state["client"])
+    assets = (
+        McpProxy(
+            oauth,
+            lambda: state["client"],
+            resource_path="/assets/mcp",
+            upstream_url=settings.assets_upstream_url,
+            host_header=settings.assets_upstream_host_header,
+        )
+        if settings.assets_upstream_url
+        else None
+    )
 
     async def healthz(_request: Request) -> JSONResponse:
         return JSONResponse({"status": "ok", "version": __version__})
@@ -117,6 +128,21 @@ def create_app(
         Route("/mcp", proxy.handle, methods=methods),
         Route("/mcp/{path:path}", proxy.handle, methods=methods),
     ]
+    if assets is not None:
+        upload = UploadPassthrough(settings, lambda: state["client"])
+        routes += [
+            Route(
+                "/.well-known/oauth-protected-resource/assets/mcp",
+                oauth.protected_resource_metadata,
+            ),
+            Route(
+                "/.well-known/oauth-authorization-server/assets/mcp",
+                oauth.authorization_server_metadata,
+            ),
+            Route("/assets/mcp", assets.handle, methods=methods),
+            Route("/assets/mcp/{path:path}", assets.handle, methods=methods),
+            Route("/upload/{token}", upload.handle, methods=["GET", "POST"]),
+        ]
     middleware = [
         Middleware(GuardMiddleware, settings=settings),
         Middleware(

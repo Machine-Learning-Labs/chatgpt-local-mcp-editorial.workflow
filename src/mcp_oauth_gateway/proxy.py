@@ -12,6 +12,7 @@ from __future__ import annotations
 import ipaddress
 import json
 import logging
+from urllib.parse import urlsplit
 
 import httpx
 from starlette.background import BackgroundTask
@@ -88,15 +89,32 @@ def _in(ip: str, networks) -> bool:
 
 
 class McpProxy:
-    def __init__(self, oauth: OAuthServer, client_factory) -> None:
+    """One protected resource (``resource_path``) in front of one upstream MCP."""
+
+    def __init__(
+        self,
+        oauth: OAuthServer,
+        client_factory,
+        *,
+        resource_path: str = "/mcp",
+        upstream_url: str | None = None,
+        host_header: str | None = None,
+    ) -> None:
         self.oauth = oauth
         self.settings = oauth.settings
         self.policy = Policy.from_settings(oauth.settings)
-        self.upstream = oauth.settings.upstream_url.rstrip("/")
+        self.resource_path = resource_path
+        self.upstream = (upstream_url or oauth.settings.upstream_url).rstrip("/")
+        self.host_header = (
+            host_header if host_header is not None else oauth.settings.upstream_host_header
+        )
         self._client_factory = client_factory
 
     def _unauthorized(self, request: Request, error: str | None = None) -> Response:
-        metadata = f"{base_url(request, self.settings)}/.well-known/oauth-protected-resource/mcp"
+        metadata = (
+            f"{base_url(request, self.settings)}/.well-known/oauth-protected-resource"
+            f"{self.resource_path}"
+        )
         challenge = f'Bearer resource_metadata="{metadata}"'
         if error:
             challenge += f', error="invalid_token", error_description="{error}"'
@@ -120,7 +138,7 @@ class McpProxy:
             return self._unauthorized(request)
         try:
             claims = self.oauth.verify_access_token(
-                token.strip(), audience=self.oauth.resource_url(request)
+                token.strip(), audience=self.oauth.resource_url(request, self.resource_path)
             )
         except TokenError as exc:
             return self._unauthorized(request, str(exc))
@@ -242,11 +260,13 @@ class McpProxy:
             url += f"?{request.url.query}"
         headers = {k: v for k, v in request.headers.items() if k.lower() not in _DROP_REQUEST}
         headers["x-forwarded-for"] = client_ip(request, self.settings)
-        headers["x-forwarded-proto"] = request.headers.get("x-forwarded-proto", request.url.scheme)
+        public = urlsplit(base_url(request, self.settings))
+        headers["x-forwarded-proto"] = public.scheme
+        headers["x-forwarded-host"] = public.netloc
         headers["x-mcp-subject"] = str(claims.get("sub", ""))
-        if self.settings.upstream_host_header:
+        if self.host_header:
             # FastMCP bound to localhost only accepts Host: localhost/127.0.0.1 (else 421).
-            headers["host"] = self.settings.upstream_host_header
+            headers["host"] = self.host_header
 
         client: httpx.AsyncClient = self._client_factory()
         upstream_request = client.build_request(request.method, url, headers=headers, content=body)
@@ -285,6 +305,60 @@ class McpProxy:
 
 async def _once(content: bytes):
     yield content
+
+
+class UploadPassthrough:
+    """``/upload/{token}`` → assets server, without bearer auth.
+
+    The single-use signed token in the URL is the capability; the assets server
+    validates it. Only GET/POST, only this path, bounded body.
+    """
+
+    def __init__(self, settings: Settings, client_factory) -> None:
+        self.settings = settings
+        base = settings.assets_upstream_url.rstrip("/")
+        self.base = base[: -len("/mcp")] if base.endswith("/mcp") else base
+        self._client_factory = client_factory
+
+    async def handle(self, request: Request) -> Response:
+        declared = request.headers.get("content-length", "")
+        limit = self.settings.assets_max_upload_bytes
+        if declared.isdigit() and int(declared) > limit:
+            return JSONResponse({"error": "payload_too_large"}, status_code=413)
+        body = await request.body()
+        if len(body) > limit:
+            return JSONResponse({"error": "payload_too_large"}, status_code=413)
+        token = request.path_params["token"]
+        headers = {
+            k: v
+            for k, v in request.headers.items()
+            if k.lower() in {"content-type", "accept", "user-agent"}
+        }
+        if self.settings.assets_upstream_host_header:
+            headers["host"] = self.settings.assets_upstream_host_header
+        public = urlsplit(base_url(request, self.settings))
+        headers["x-forwarded-proto"] = public.scheme
+        headers["x-forwarded-host"] = public.netloc
+        client: httpx.AsyncClient = self._client_factory()
+        try:
+            upstream = await client.request(
+                request.method, f"{self.base}/upload/{token}", headers=headers, content=body
+            )
+        except httpx.HTTPError as exc:
+            log.warning("assets server unreachable: %s", exc)
+            return JSONResponse({"error": "bad_gateway"}, status_code=502)
+        audit.info(
+            "upload method=%s status=%s ip=%s",
+            request.method,
+            upstream.status_code,
+            client_ip(request, self.settings),
+        )
+        return Response(
+            upstream.content,
+            status_code=upstream.status_code,
+            media_type=upstream.headers.get("content-type", "text/html"),
+            headers={"cache-control": "no-store"},
+        )
 
 
 async def _read_limited(response: httpx.Response, limit: int) -> bytes:
