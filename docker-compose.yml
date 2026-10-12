@@ -38,6 +38,10 @@ services:
       POLICY_ROOT: ${EDITORIAL_ROOT:?set EDITORIAL_ROOT in .env (bin/setup)}
       POLICY_DENY_TOOLS: ${POLICY_DENY_TOOLS:-run_script,install_custom_font,set_js_action,create_pdf_push_button}
       POLICY_ALLOW_TOOLS: ${POLICY_ALLOW_TOOLS:-}
+      # Second connector: Editorial Assets at /assets/mcp (+ /upload/<token> links).
+      ASSETS_UPSTREAM_URL: http://assets:8766/mcp
+      ASSETS_UPSTREAM_HOST_HEADER: localhost:8766
+      ASSETS_MAX_UPLOAD_BYTES: ${ASSETS_MAX_UPLOAD_BYTES:-32505856}
     volumes:
       # Read-only: the gateway only resolves symlinks for the path jail.
       - ${EDITORIAL_ROOT}:${EDITORIAL_ROOT}:ro,z
@@ -66,6 +70,33 @@ services:
     # Not published on the host: only the gateway can reach it.
     expose:
       - "8000"
+
+  assets:
+    build:
+      context: .
+      dockerfile: containers/assets/Containerfile
+    image: localhost/editorial-workflow/assets:dev
+    restart: unless-stopped
+    user: "${CONTAINER_USER:-10002:10002}"
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      EDITORIAL_ROOT: ${EDITORIAL_ROOT}
+      ASSETS_SECRET: ${ASSETS_SECRET:?run bin/setup first}
+      ASSETS_SUBDIR: ${ASSETS_SUBDIR:-libro/assets}
+      ASSETS_DOWNLOAD_HOSTS: ${ASSETS_DOWNLOAD_HOSTS:-.oaiusercontent.com,.openai.com,.chatgpt.com}
+      ASSETS_MAX_BYTES: ${ASSETS_MAX_BYTES:-31457280}
+      ASSETS_HOST: 0.0.0.0
+      ASSETS_PORT: "8766"
+    volumes:
+      # Read-write: the only place images are written to.
+      - ${EDITORIAL_ROOT}:${EDITORIAL_ROOT}:z
+      # Local time for the timestamps in file names.
+      - /etc/localtime:/etc/localtime:ro
+    expose:
+      - "8766"
 
   ngrok:
     image: ${NGROK_IMAGE:-docker.io/ngrok/ngrok:latest}

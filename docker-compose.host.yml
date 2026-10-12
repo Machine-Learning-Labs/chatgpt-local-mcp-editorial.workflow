@@ -18,6 +18,15 @@ services:
       UPSTREAM_HOST_HEADER: localhost:${HOST_MCP_PORT:-8765}
       # ngrok connects from 127.0.0.1: trust only loopback for X-Forwarded-For.
       GATEWAY_TRUSTED_PROXIES: 127.0.0.0/8,::1/128
+      ASSETS_UPSTREAM_URL: http://127.0.0.1:${ASSETS_PORT:-8766}/mcp
+      ASSETS_UPSTREAM_HOST_HEADER: localhost:${ASSETS_PORT:-8766}
+
+  assets:
+    network_mode: host
+    expose: !reset []
+    environment:
+      ASSETS_HOST: 127.0.0.1
+      ASSETS_PORT: ${ASSETS_PORT:-8766}
 
   ngrok:
     network_mode: host
