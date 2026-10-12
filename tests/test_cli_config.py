@@ -51,6 +51,44 @@ def test_cli_token(env, capsys):
     assert claims["scope"] == "mcp"
 
 
+def test_cli_token_defaults_to_local_resource(env, capsys):
+    assert main(["token"]) == 0
+    claims = Signer(SECRET).decode(capsys.readouterr().out.strip(), typ="access")
+    assert claims["aud"] == "http://127.0.0.1:8080/mcp"
+
+
+def test_policy_settings_from_env():
+    settings = Settings.from_env(
+        {
+            "GATEWAY_SECRET": SECRET,
+            "GATEWAY_OWNER_PASSWORD": "pw",
+            "POLICY_ROOT": "/home/x/Editorial/",
+            "POLICY_DENY_TOOLS": "none",
+            "POLICY_ALLOW_TOOLS": "load_image, export_pdf",
+            "GATEWAY_ALLOWED_CLIENT_CIDRS": "203.0.113.0/24",
+            "GATEWAY_ALLOWED_REDIRECTS": "https://chatgpt.com/",
+        }
+    )
+    assert settings.policy_root == "/home/x/Editorial"
+    assert settings.deny_tools == ()
+    assert settings.allow_tools == ("load_image", "export_pdf")
+    assert str(settings.allowed_client_cidrs[0]) == "203.0.113.0/24"
+    assert settings.allowed_redirect_prefixes == ("https://chatgpt.com/",)
+
+
+def test_default_deny_list_and_redirects():
+    settings = Settings.from_env({"GATEWAY_SECRET": SECRET, "GATEWAY_OWNER_PASSWORD": "pw"})
+    assert "run_script" in settings.deny_tools
+    assert "https://chatgpt.com/" in settings.allowed_redirect_prefixes
+
+
+def test_relative_policy_root_rejected():
+    with pytest.raises(ValueError, match="POLICY_ROOT"):
+        Settings.from_env(
+            {"GATEWAY_SECRET": SECRET, "GATEWAY_OWNER_PASSWORD": "pw", "POLICY_ROOT": "Editorial"}
+        )
+
+
 def test_cli_token_json(env, capsys):
     assert main(["token", "--json"]) == 0
     body = json.loads(capsys.readouterr().out)

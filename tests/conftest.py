@@ -22,6 +22,8 @@ class FakeUpstream:
 
     def __init__(self) -> None:
         self.requests: list[httpx.Request] = []
+        self.tools = ["create_document", "load_image", "run_script", "set_js_action"]
+        self.sse = False
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
@@ -32,7 +34,19 @@ class FakeUpstream:
                 content=_stream(b"event: message\ndata: {}\n\n"),
             )
         body = json.loads(request.content or b"{}")
-        payload = {"jsonrpc": "2.0", "id": body.get("id"), "result": {"echo": body.get("method")}}
+        result = {"echo": body.get("method"), "params": body.get("params")}
+        if body.get("method") == "tools/list":
+            result = {"tools": [{"name": n, "inputSchema": {}} for n in self.tools]}
+        elif body.get("method") == "initialize":
+            result = {"serverInfo": {"name": "fake"}, "instructions": "Fake MCP."}
+        payload = {"jsonrpc": "2.0", "id": body.get("id"), "result": result}
+        if self.sse:
+            data = f"event: message\ndata: {json.dumps(payload)}\n\n".encode()
+            return httpx.Response(
+                200,
+                headers={"content-type": "text/event-stream", "mcp-session-id": "sess-1"},
+                content=_stream(data),
+            )
         return httpx.Response(
             200,
             headers={"content-type": "application/json", "mcp-session-id": "sess-1"},
@@ -66,6 +80,18 @@ def client(settings, upstream):
     app = create_app(settings, upstream_transport=httpx.MockTransport(upstream))
     with TestClient(app, base_url="https://gw.example.test") as test_client:
         yield test_client
+
+
+BASE = "https://gw.example.test"
+
+
+def token_for(app, base: str = BASE, **kwargs) -> str:
+    """Access token bound to the test client's resource URL (aud is enforced)."""
+    return app.state.oauth.mint_access_token(issuer=base, **kwargs)
+
+
+def bearer(app, base: str = BASE) -> dict:
+    return {"authorization": f"Bearer {token_for(app, base)}"}
 
 
 def register(client, redirect=REDIRECT, **extra) -> dict:

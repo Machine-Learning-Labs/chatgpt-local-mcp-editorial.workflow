@@ -307,3 +307,94 @@ def test_tampered_consent_request_rejected(client):
         "/authorize", data={"request": "a.b.c", "password": "x", "decision": "approve"}
     )
     assert response.status_code == 400
+
+
+# ----------------------------------------------------------------------------- hardening
+def test_metadata_advertises_rfc9207(client):
+    body = client.get("/.well-known/oauth-authorization-server").json()
+    assert body["authorization_response_iss_parameter_supported"] is True
+
+
+def test_openid_configuration_not_served(client):
+    assert client.get("/.well-known/openid-configuration").status_code == 404
+
+
+def test_iss_returned_on_success_and_error(client):
+    params = authorize(client, register(client), secrets.token_urlsafe(48))
+    assert params["iss"] == "https://gw.example.test"
+    reg = register(client)
+    response = client.get(
+        "/authorize",
+        params={"response_type": "code", "client_id": reg["client_id"], "redirect_uri": REDIRECT},
+        follow_redirects=False,
+    )
+    assert parse_qs(urlsplit(response.headers["location"]).query)["iss"] == [
+        "https://gw.example.test"
+    ]
+
+
+def test_iss_returned_on_deny(client):
+    token = _consent_token(client, register(client))
+    response = client.post(
+        "/authorize", data={"request": token, "decision": "deny"}, follow_redirects=False
+    )
+    assert parse_qs(urlsplit(response.headers["location"]).query)["iss"] == [
+        "https://gw.example.test"
+    ]
+
+
+def test_foreign_resource_is_rejected(client):
+    reg = register(client)
+    response = client.get(
+        "/authorize",
+        params={
+            "response_type": "code",
+            "client_id": reg["client_id"],
+            "redirect_uri": REDIRECT,
+            "code_challenge": "x" * 43,
+            "code_challenge_method": "S256",
+            "resource": "https://other.example/mcp",
+        },
+        follow_redirects=False,
+    )
+    assert "error=invalid_target" in response.headers["location"]
+
+
+def test_resource_becomes_token_audience(client):
+    reg = register(client)
+    verifier = secrets.token_urlsafe(48)
+    response = client.get(
+        "/authorize",
+        params={
+            "response_type": "code",
+            "client_id": reg["client_id"],
+            "redirect_uri": REDIRECT,
+            "code_challenge": pkce_s256(verifier),
+            "code_challenge_method": "S256",
+            "resource": "https://gw.example.test/mcp/",
+        },
+    )
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "uri,ok",
+    [
+        ("https://chatgpt.com/connector/oauth/abc", True),
+        ("https://chatgpt.com.evil.example/cb", False),
+        ("https://evil.example/https://chatgpt.com/", False),
+        ("https://claude.ai/api/mcp/auth_callback", True),
+        ("http://localhost:6274/oauth/callback", True),
+        ("cursor://anysphere/oauth", False),
+    ],
+)
+def test_registration_redirect_allowlist(client, uri, ok):
+    response = client.post("/register", json={"redirect_uris": [uri]})
+    assert (response.status_code == 201) is ok, response.text
+
+
+def test_redirect_allowlist_can_be_disabled():
+    app = create_app(make_settings(allowed_redirect_prefixes=()))
+    with TestClient(app) as client:
+        response = client.post("/register", json={"redirect_uris": ["https://any.example/cb"]})
+    assert response.status_code == 201
