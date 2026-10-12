@@ -1,0 +1,27 @@
+# Host mode override (MCP_MODE=host), added by bin/lib.sh:
+#   docker compose -f docker-compose.yml -f docker-compose.host.yml ...
+#
+# scribus-mcp runs on the host as a systemd user service (bin/host-service) bound to
+# 127.0.0.1, next to your desktop Scribus and its bridge. To reach it without exposing
+# anything to the LAN, the gateway and ngrok share the host network namespace and listen
+# on loopback only. Linux only (Docker Engine or Podman); needs compose `!reset` support
+# (docker compose >= 2.24, podman-compose >= 1.1).
+
+services:
+  gateway:
+    network_mode: host
+    ports: !reset []
+    environment:
+      GATEWAY_HOST: 127.0.0.1
+      GATEWAY_PORT_INTERNAL: ${GATEWAY_PORT:-8080}
+      UPSTREAM_URL: http://127.0.0.1:${HOST_MCP_PORT:-8765}/mcp
+      UPSTREAM_HOST_HEADER: localhost:${HOST_MCP_PORT:-8765}
+      # ngrok connects from 127.0.0.1: trust only loopback for X-Forwarded-For.
+      GATEWAY_TRUSTED_PROXIES: 127.0.0.0/8,::1/128
+
+  ngrok:
+    network_mode: host
+    ports: !reset []
+    environment:
+      NGROK_UPSTREAM: http://127.0.0.1:${GATEWAY_PORT:-8080}
+      NGROK_WEB_ADDR: 127.0.0.1:${NGROK_INSPECT_PORT:-4040}
