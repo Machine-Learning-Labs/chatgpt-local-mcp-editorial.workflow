@@ -185,6 +185,19 @@ def test_tools_list_rewritten_in_sse_responses(client, upstream):
     assert "run_script" not in names and "load_image" in names
 
 
+def test_sse_rewrite_preserves_crlf_and_streams_without_length(client, upstream):
+    upstream.sse = True
+    upstream.eol = "\r\n"  # FastMCP's framing
+    response = client.post("/mcp", json=LIST, headers=bearer(client.app))
+    assert response.status_code == 200
+    assert "content-length" not in response.headers
+    body = response.content
+    assert body.startswith(b"event: message\r\ndata: ")
+    assert body.endswith(b"\r\n\r\n")
+    assert body.count(b"\r\n") == 3 and body.count(b"\n") == 3  # no bare LF
+    assert len(response.headers.get_list("date")) <= 1  # upstream date not duplicated
+
+
 def test_allow_list_restricts_tools(upstream):
     app = create_app(
         make_settings(allow_tools=("load_image",)), upstream_transport=httpx.MockTransport(upstream)

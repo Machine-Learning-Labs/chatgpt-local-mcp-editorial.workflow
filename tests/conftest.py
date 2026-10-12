@@ -24,6 +24,7 @@ class FakeUpstream:
         self.requests: list[httpx.Request] = []
         self.tools = ["create_document", "load_image", "run_script", "set_js_action"]
         self.sse = False
+        self.eol = "\n"
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
@@ -41,7 +42,8 @@ class FakeUpstream:
             result = {"serverInfo": {"name": "fake"}, "instructions": "Fake MCP."}
         payload = {"jsonrpc": "2.0", "id": body.get("id"), "result": result}
         if self.sse:
-            data = f"event: message\ndata: {json.dumps(payload)}\n\n".encode()
+            eol = self.eol
+            data = f"event: message{eol}data: {json.dumps(payload)}{eol}{eol}".encode()
             return httpx.Response(
                 200,
                 headers={"content-type": "text/event-stream", "mcp-session-id": "sess-1"},

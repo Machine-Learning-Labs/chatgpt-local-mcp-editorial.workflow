@@ -45,6 +45,9 @@ _DROP_REQUEST = {
     "origin",
 }
 _DROP_RESPONSE = {
+    # uvicorn sets its own; copying them would duplicate the headers.
+    "date",
+    "server",
     "connection",
     "keep-alive",
     "proxy-authenticate",
@@ -205,20 +208,21 @@ class McpProxy:
 
     def _rewrite_body(self, content: bytes, content_type: str) -> bytes:
         if content_type.startswith("text/event-stream"):
+            # Keep every line ending exactly as sent (FastMCP uses CRLF): mixing CRLF and
+            # LF produces an event stream that ngrok re-frames, breaking Content-Length.
             out = []
-            for line in content.decode("utf-8").split("\n"):
+            for raw in content.decode("utf-8").splitlines(keepends=True):
+                line = raw.rstrip("\r\n")
+                ending = raw[len(line) :]
                 if line.startswith("data:"):
-                    data = line[5:].strip()
                     try:
-                        message = json.loads(data)
+                        message = json.loads(line[5:].strip())
                     except ValueError:
-                        out.append(line)
-                        continue
+                        message = None
                     if isinstance(message, dict):
-                        message = self._rewrite_message(message)
-                    line = "data: " + json.dumps(message)
-                out.append(line)
-            return "\n".join(out).encode("utf-8")
+                        line = "data: " + json.dumps(self._rewrite_message(message))
+                out.append(line + ending)
+            return "".join(out).encode("utf-8")
         if content_type.startswith("application/json"):
             payload = json.loads(content)
             if isinstance(payload, list):
@@ -267,6 +271,9 @@ class McpProxy:
             finally:
                 await upstream.aclose()
             response_headers.pop("content-encoding", None)
+            if upstream.headers.get("content-type", "").startswith("text/event-stream"):
+                # Same framing as the upstream: chunked, no Content-Length.
+                return StreamingResponse(_once(content), status_code=200, headers=response_headers)
             return Response(content, status_code=200, headers=response_headers)
         return StreamingResponse(
             upstream.aiter_raw(),
@@ -274,6 +281,10 @@ class McpProxy:
             headers=response_headers,
             background=BackgroundTask(upstream.aclose),
         )
+
+
+async def _once(content: bytes):
+    yield content
 
 
 async def _read_limited(response: httpx.Response, limit: int) -> bytes:

@@ -141,7 +141,7 @@ live() {
 
   token="$("$ROOT/bin/token" --quiet --local)" || { err "could not mint a token"; return; }
   if body="$(mcp_initialize "$local_url/mcp" "$token")" && grep -q '"serverInfo"' <<<"$body"; then
-    ok "MCP initialize through gateway: $(grep -oE '"serverInfo":\{[^}]*\}' <<<"$body" | head -n1)"
+    ok "MCP initialize through gateway: $(grep -oE '"serverInfo": ?\{[^}]*\}' <<<"$body" | head -n1)"
   else
     err "MCP initialize through gateway failed (upstream down? make logs)"
   fi
