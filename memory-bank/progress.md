@@ -2,23 +2,39 @@
 
 ## Works (verified 2026-10-12)
 
-- [x] Gateway: metadata (RFC 9728/8414), DCR, consent with password and rate limit, code + PKCE S256, refresh rotation, bearer proxy with SSE streaming, CLI token minting.
-- [x] 69 unit tests pass; ruff and shellcheck are clean.
-- [x] End-to-end with the real scribus-mcp 1.3.1 on the host via `bin/host-mcp`: the full OAuth flow, then initialize, then 174 tools, then a tool call.
-- [x] Images build with podman-compose: gateway (156 MB) and scribus-mcp (948 MB).
-- [x] End-to-end against the built scribus-mcp image: `get_scribus_version` returns 1.6.3 (headless Scribus on Xvfb).
-- [x] `bin/setup` (imports the ngrok token) and `bin/check` pass, tested with a throwaway env file.
-- [x] `bin/compose config` renders both profiles correctly with podman-compose.
+### v0.1: initial stack
+
+- [x] Gateway OAuth: metadata, DCR, consent, PKCE, refresh, bearer proxy (SSE), CLI tokens.
+- [x] End-to-end with the real scribus-mcp 1.3.1, both on the host and in the container image (Scribus 1.6.3 headless).
+- [x] Images build with podman-compose.
+
+### Host mode and hardening
+
+- [x] 103 unit tests pass at 93% coverage. ruff and shellcheck are clean.
+- [x] `bin/host-service` full lifecycle on the owner's machine, under a test unit name, port and data dir:
+  - transient `start` (FragmentPath under `/run/.../transient/`, `NoNewPrivileges`, `UMask=0077`, `RestrictAddressFamilies` applied, listening on `127.0.0.1` only),
+  - then `install`, `start`, `stop`, and `uninstall`, which leaves **nothing** behind (no unit file, no venv, no unit loaded).
+- [x] The runtime venv uses the uv-managed CPython 3.12 (`~/.local/share/uv/python/...`), not conda.
+- [x] End-to-end through the gateway (`.venv`) with the real host service (headless Scribus 1.6.5):
+  - full OAuth flow with `iss` in the redirect,
+  - `openid-configuration` returns 404, and DCR with an evil redirect returns 400,
+  - 171 tools listed (4 hidden), with `securitySchemes`,
+  - the instructions mention the root,
+  - `set_js_action`, `/etc/x.sla` and `~/.ssh/...` are refused with readable errors,
+  - allowed calls work, and relative paths are rewritten to absolute inside the root,
+  - the audit log is written.
+- [x] The hardened gateway container runs with `--network host`, `--read-only`, `--cap-drop ALL`, `no-new-privileges` and the root mounted read-only. It listens on 127.0.0.1 only, and the policy refuses `/etc/passwd`.
+- [x] `bin/compose config` works for both modes with podman-compose 1.5 (`!reset` drops the published ports in host mode).
 
 ## Not verified yet
 
-- [ ] The full `make up` with the ngrok container and a public URL (needs the owner's run).
-- [ ] Docker engine (only Podman was available).
-- [ ] Real OAuth clients: claude.ai connector, Claude Code `/mcp`, ChatGPT.
-- [ ] scribus-mcp interactive bridge in host mode.
-- [ ] CI workflow on GitHub (no remote yet).
+- [ ] The full `make up` in host mode with ngrok, and ChatGPT connecting (owner).
+- [ ] The interactive bridge with `python3-pyqt5` installed (owner: `make scribus`).
+- [ ] The image flow through the inbox from ChatGPT.
+- [ ] Docker Engine (only Podman is available here). CI covers compose config and image builds.
 
 ## Known issues
 
-- The free ngrok interstitial page shows up on the consent page (cosmetic).
-- Tools that need Scribus 1.7 aren't available in the container (Debian ships 1.6.3).
+- On the free ngrok plan, the consent page shows the interstitial first.
+- Container mode can't use the desktop bridge (by design: see `docs/scribus-mcp.md`).
+- 2026-10-12: the old `./workspace/` folder was deleted during the migration to `EDITORIAL_ROOT` without its contents being checked first. It was expected to hold only `.gitkeep`.
