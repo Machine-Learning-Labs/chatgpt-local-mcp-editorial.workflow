@@ -19,7 +19,7 @@ from starlette.background import BackgroundTask
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
 
-from .config import Settings
+from .config import EDITOR_PATH, Settings
 from .oauth import OAuthServer, base_url
 from .policy import Policy, PolicyError
 from .tokens import TokenError
@@ -96,7 +96,7 @@ class McpProxy:
         oauth: OAuthServer,
         client_factory,
         *,
-        resource_path: str = "/mcp",
+        resource_path: str = EDITOR_PATH,
         upstream_url: str | None = None,
         host_header: str | None = None,
     ) -> None:
@@ -129,7 +129,9 @@ class McpProxy:
 
     async def handle(self, request: Request) -> Response:
         if not ip_allowed(request, self.settings):
-            audit.warning("deny ip=%s path=/mcp", client_ip(request, self.settings))
+            audit.warning(
+                "deny ip=%s path=%s", client_ip(request, self.settings), self.resource_path
+            )
             return JSONResponse({"error": "forbidden"}, status_code=403)
 
         auth = request.headers.get("authorization", "")

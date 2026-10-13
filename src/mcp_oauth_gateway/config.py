@@ -8,6 +8,10 @@ from dataclasses import dataclass, field
 
 DEFAULT_SCOPE = "mcp"
 
+# Public paths of the protected resources (one ChatGPT connector each).
+EDITOR_PATH = "/editor/mcp"  # Scribus (scribus-mcp)
+ASSETS_PATH = "/assets/mcp"  # Editorial Assets
+
 # Tools that can run code or touch Scribus' own configuration. Hidden and refused
 # unless explicitly re-enabled through POLICY_DENY_TOOLS.
 DEFAULT_DENY_TOOLS = (
@@ -75,7 +79,7 @@ class Settings:
     port: int = 8080
     # --- OAuth hardening
     allowed_redirect_prefixes: tuple[str, ...] = DEFAULT_REDIRECT_PREFIXES
-    # --- network hardening: only these client IPs may call /mcp and /token (empty = any).
+    # --- network hardening: only these client IPs may call the MCP paths and /token (empty = any).
     allowed_client_cidrs: tuple[Network, ...] = ()
     # Peers whose X-Forwarded-For is trusted (the ngrok agent).
     trusted_proxy_cidrs: tuple[Network, ...] = field(

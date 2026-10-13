@@ -12,10 +12,10 @@ def test_healthz(client):
 def test_protected_resource_metadata(client):
     for path in (
         "/.well-known/oauth-protected-resource",
-        "/.well-known/oauth-protected-resource/mcp",
+        "/.well-known/oauth-protected-resource/editor/mcp",
     ):
         body = client.get(path).json()
-        assert body["resource"] == "https://gw.example.test/mcp"
+        assert body["resource"] == "https://gw.example.test/editor/mcp"
         assert body["authorization_servers"] == ["https://gw.example.test"]
 
 
@@ -49,7 +49,7 @@ def test_public_url_overrides_headers():
 
 def test_cors_preflight_exposes_session_header(client):
     response = client.options(
-        "/mcp",
+        "/editor/mcp",
         headers={
             "origin": "https://claude.ai",
             "access-control-request-method": "POST",
@@ -58,3 +58,11 @@ def test_cors_preflight_exposes_session_header(client):
     )
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] in {"*", "https://claude.ai"}
+
+
+def test_editor_path_replaces_bare_mcp(client):
+    assert client.post("/mcp", json={}).status_code == 404
+    assert client.get("/.well-known/oauth-protected-resource/mcp").status_code == 404
+    bare = client.get("/.well-known/oauth-protected-resource").json()
+    assert bare["resource"] == "https://gw.example.test/editor/mcp"
+    assert client.get("/").json()["editor"] == "/editor/mcp"

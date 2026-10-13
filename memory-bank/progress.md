@@ -30,7 +30,7 @@
 
 - [x] 165 tests pass (assets: images, fetch, server, gateway multi-resource), at 92% coverage. ruff and shellcheck are clean.
 - [x] End-to-end with the real hardened assets container (host network, read-only, `cap_drop`, user `0:0`) and the gateway:
-  - OAuth with the assets resource; the assets token is rejected on `/mcp`,
+  - OAuth with the assets resource; the assets token is rejected on `/editor/mcp`,
   - `tools/list` keeps `openai/fileParams` and adds `securitySchemes`,
   - a download from a disallowed host is refused, and so is `/etc` as a folder,
   - the upload link's GET and POST work, and reuse returns 410,

@@ -15,7 +15,7 @@ The asset being protected is your desktop session. An authorized MCP client can 
 | A token for one connector is used on the other | Audiences are separate per resource (`/mcp` and `/assets/mcp`) |
 | Something on the LAN reaches the MCP | scribus-mcp, the gateway and the ngrok inspector all listen on 127.0.0.1. The bridge listens on 127.0.0.1 too, and requires a token from a 0600 file. `make check-live` verifies the bindings. |
 | The token leaks to the MCP | The proxy strips the `Authorization`, `Cookie` and `Origin` headers. |
-| Oversized requests or DoS | Body caps: `/mcp` 4 MB (`GATEWAY_MAX_BODY_BYTES`), `/token` and `/register` 64 KB. |
+| Oversized requests or DoS | Body caps: `/editor/mcp` and `/assets/mcp` 4 MB (`GATEWAY_MAX_BODY_BYTES`), `/token` and `/register` 64 KB. |
 | Clickjacking or leaks from the consent page | CSP `default-src 'none'`, `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `no-store`. |
 | A container escape escalates privileges | Containers run with `cap_drop: ALL` and `no-new-privileges`. The gateway has a read-only root filesystem and mounts the folder read-only. |
 | A compromised scribus-mcp service | It runs as a systemd user unit with `NoNewPrivileges`, `UMask=0077`, `RestrictAddressFamilies`, `RestrictSUIDSGID` and `LockPersonality`, from a dedicated venv with a fixed `PATH`. |
@@ -24,7 +24,7 @@ Every tool call is written to the audit log (`make logs s=gateway`), allowed or 
 
 ## Restricting callers to ChatGPT's IPs
 
-OpenAI publishes the egress ranges its connectors use. See [Authentication for plugins](https://developers.openai.com/plugins/build/auth), section "Client identification". Put them in `GATEWAY_ALLOWED_CLIENT_CIDRS`, comma separated. This allowlist applies to `/mcp`, `/token` and `/register`. Your browser still reaches `/authorize`.
+OpenAI publishes the egress ranges its connectors use. See [Authentication for plugins](https://developers.openai.com/plugins/build/auth), section "Client identification". Put them in `GATEWAY_ALLOWED_CLIENT_CIDRS`, comma separated. This allowlist applies to `/editor/mcp`, `/assets/mcp`, `/token` and `/register`. Your browser still reaches `/authorize`.
 
 The client IP is read from the last `X-Forwarded-For` hop, and only when the peer is a trusted proxy (`GATEWAY_TRUSTED_PROXIES`, which is loopback in host mode). A client therefore can't spoof it.
 

@@ -4,6 +4,10 @@ This file follows [Keep a Changelog](https://keepachangelog.com/) and [SemVer](h
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** the Scribus connector moved from `/mcp` to **`/editor/mcp`**, alongside `/assets/mcp`. The resource paths are constants in `config.py`. Update the ChatGPT connector URL; `/mcp` now answers 404.
+
 ### Added
 
 - The **Editorial Assets** MCP server (`src/editorial_assets`, container `assets`), exposed as a second connector at `/assets/mcp` with its own OAuth audience. Its tools:

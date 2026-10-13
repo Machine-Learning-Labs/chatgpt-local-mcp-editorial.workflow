@@ -1,4 +1,4 @@
-"""ASGI application wiring: OAuth endpoints + protected /mcp proxy."""
+"""ASGI application wiring: OAuth endpoints + protected MCP proxies (/editor/mcp, /assets/mcp)."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from starlette.routing import Route
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from . import __version__
-from .config import Settings
+from .config import ASSETS_PATH, EDITOR_PATH, Settings
 from .oauth import OAuthServer
 from .proxy import McpProxy, UploadPassthrough, client_ip, ip_allowed
 
@@ -94,7 +94,7 @@ def create_app(
         McpProxy(
             oauth,
             lambda: state["client"],
-            resource_path="/assets/mcp",
+            resource_path=ASSETS_PATH,
             upstream_url=settings.assets_upstream_url,
             host_header=settings.assets_upstream_host_header,
         )
@@ -109,7 +109,8 @@ def create_app(
         return JSONResponse(
             {
                 "service": "mcp-oauth-gateway",
-                "mcp": "/mcp",
+                "editor": EDITOR_PATH,
+                "assets": ASSETS_PATH if assets else None,
                 "metadata": "/.well-known/oauth-authorization-server",
             }
         )
@@ -119,28 +120,34 @@ def create_app(
         Route("/", root),
         Route("/healthz", healthz),
         Route("/.well-known/oauth-protected-resource", oauth.protected_resource_metadata),
-        Route("/.well-known/oauth-protected-resource/mcp", oauth.protected_resource_metadata),
+        Route(
+            f"/.well-known/oauth-protected-resource{EDITOR_PATH}",
+            oauth.protected_resource_metadata,
+        ),
         Route("/.well-known/oauth-authorization-server", oauth.authorization_server_metadata),
-        Route("/.well-known/oauth-authorization-server/mcp", oauth.authorization_server_metadata),
+        Route(
+            f"/.well-known/oauth-authorization-server{EDITOR_PATH}",
+            oauth.authorization_server_metadata,
+        ),
         Route("/register", oauth.register, methods=["POST"]),
         Route("/authorize", oauth.authorize, methods=["GET", "POST"]),
         Route("/token", oauth.token, methods=["POST"]),
-        Route("/mcp", proxy.handle, methods=methods),
-        Route("/mcp/{path:path}", proxy.handle, methods=methods),
+        Route(EDITOR_PATH, proxy.handle, methods=methods),
+        Route(f"{EDITOR_PATH}/{{path:path}}", proxy.handle, methods=methods),
     ]
     if assets is not None:
         upload = UploadPassthrough(settings, lambda: state["client"])
         routes += [
             Route(
-                "/.well-known/oauth-protected-resource/assets/mcp",
+                f"/.well-known/oauth-protected-resource{ASSETS_PATH}",
                 oauth.protected_resource_metadata,
             ),
             Route(
-                "/.well-known/oauth-authorization-server/assets/mcp",
+                f"/.well-known/oauth-authorization-server{ASSETS_PATH}",
                 oauth.authorization_server_metadata,
             ),
-            Route("/assets/mcp", assets.handle, methods=methods),
-            Route("/assets/mcp/{path:path}", assets.handle, methods=methods),
+            Route(ASSETS_PATH, assets.handle, methods=methods),
+            Route(f"{ASSETS_PATH}/{{path:path}}", assets.handle, methods=methods),
             Route("/upload/{token}", upload.handle, methods=["GET", "POST"]),
         ]
     middleware = [

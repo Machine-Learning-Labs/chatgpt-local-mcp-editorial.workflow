@@ -1,6 +1,7 @@
 # editorial.workflow — Scribus MCP (caewa/scribus-mcp) published over HTTPS with OAuth 2.1.
 #
-#   internet ──ngrok──▶ gateway:8080 (OAuth 2.1 + bearer check + tool policy) ──▶ scribus-mcp/mcp
+#   internet ──ngrok──▶ gateway:8080 (OAuth 2.1 + bearer check + tool policy) ─┬▶ /editor/mcp → scribus-mcp
+#                                                                              └▶ /assets/mcp → assets
 #
 # Works with `docker compose` and `podman compose` / `podman-compose`.
 # Use `make up` (bin/up) rather than calling compose directly: it prepares .env, picks the

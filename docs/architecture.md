@@ -16,18 +16,18 @@ A third container, **assets** (`src/editorial_assets`), is a second protected re
 The gateway (`src/mcp_oauth_gateway`) does three jobs:
 
 1. **OAuth 2.1 authorization server.** It implements RFC 8414 metadata, RFC 7591 DCR, PKCE S256, RFC 9207 `iss` and refresh rotation.
-2. **Resource server.** On every `/mcp` request it checks the bearer token (signature, `typ`, expiry, audience, scope) and the client IP allowlist.
+2. **Resource server.** On every `/editor/mcp` and `/assets/mcp` request it checks the bearer token (signature, `typ`, expiry, audience, scope) and the client IP allowlist.
 3. **Policy enforcement point.** It reads the JSON-RPC traffic (`policy.py`, `proxy.py`), refuses denied tools and paths outside `EDITORIAL_ROOT`, and rewrites `tools/list` and `initialize`.
 
 ## OAuth flow (MCP authorization spec 2025-06-18)
 
-1. The client sends `POST /mcp` without a token. The gateway answers `401` with `WWW-Authenticate: Bearer resource_metadata=".../.well-known/oauth-protected-resource/mcp"`.
+1. The client sends `POST /editor/mcp` without a token. The gateway answers `401` with `WWW-Authenticate: Bearer resource_metadata=".../.well-known/oauth-protected-resource/editor/mcp"`.
 2. The client reads the protected resource metadata (RFC 9728), then the authorization server metadata (RFC 8414) at `/.well-known/oauth-authorization-server`. There is no OIDC.
 3. The client calls `POST /register` (DCR). Its redirect URIs must match `GATEWAY_ALLOWED_REDIRECTS`. The `client_id` it receives is a signed token, so the gateway stores nothing.
-4. The browser opens `GET /authorize` with PKCE S256 and an optional `resource`, which must be this gateway's `/mcp`. The owner approves on the consent page with `GATEWAY_OWNER_PASSWORD`.
+4. The browser opens `GET /authorize` with PKCE S256 and an optional `resource`, which must be one of this gateway's resources (`/editor/mcp` or `/assets/mcp`). The owner approves on the consent page with `GATEWAY_OWNER_PASSWORD`.
 5. The gateway redirects with `code`, `state` and `iss` (RFC 9207). Errors are redirected with `iss` too.
 6. The client calls `POST /token` with the code and verifier. It gets an access token with `aud` set to the resource (1 h) and a refresh token (30 d, rotated on use).
-7. The client calls `/mcp` with the bearer token, and the proxy streams the traffic to scribus-mcp. The `Authorization`, `Cookie` and `Origin` headers are removed, and `Host` is set to localhost for FastMCP.
+7. The client calls `/editor/mcp` with the bearer token, and the proxy streams the traffic to scribus-mcp. The `Authorization`, `Cookie` and `Origin` headers are removed, and `Host` is set to localhost for FastMCP.
 
 ## Policy on the JSON-RPC stream
 

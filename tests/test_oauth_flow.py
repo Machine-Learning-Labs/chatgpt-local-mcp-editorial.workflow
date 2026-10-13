@@ -64,7 +64,7 @@ def test_full_authorization_code_flow(client):
     assert tokens["token_type"] == "Bearer"
     assert tokens["scope"] == "mcp"
     claims = client.app.state.oauth.verify_access_token(tokens["access_token"])
-    assert claims["aud"] == "https://gw.example.test/mcp"
+    assert claims["aud"] == "https://gw.example.test/editor/mcp"
 
 
 def test_state_is_returned(client):
@@ -353,7 +353,7 @@ def test_foreign_resource_is_rejected(client):
             "redirect_uri": REDIRECT,
             "code_challenge": "x" * 43,
             "code_challenge_method": "S256",
-            "resource": "https://other.example/mcp",
+            "resource": "https://other.example/editor/mcp",
         },
         follow_redirects=False,
     )
@@ -371,7 +371,7 @@ def test_resource_becomes_token_audience(client):
             "redirect_uri": REDIRECT,
             "code_challenge": pkce_s256(verifier),
             "code_challenge_method": "S256",
-            "resource": "https://gw.example.test/mcp/",
+            "resource": "https://gw.example.test/editor/mcp/",
         },
     )
     assert response.status_code == 200

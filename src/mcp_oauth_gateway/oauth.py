@@ -19,7 +19,7 @@ from urllib.parse import unquote_plus, urlencode, urlsplit
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
-from .config import Settings
+from .config import ASSETS_PATH, EDITOR_PATH, Settings
 from .pages import consent_page, error_page
 from .tokens import Signer, TokenError, pkce_s256
 
@@ -146,12 +146,12 @@ class OAuthServer:
     @property
     def resources(self) -> dict[str, str]:
         """Protected resources served by this gateway: path → display name."""
-        found = {"/mcp": "Scribus MCP"}
+        found = {EDITOR_PATH: "Scribus editor"}
         if self.settings.assets_upstream_url:
-            found["/assets/mcp"] = "Editorial Assets"
+            found[ASSETS_PATH] = "Editorial Assets"
         return found
 
-    def resource_url(self, request: Request, path: str = "/mcp") -> str:
+    def resource_url(self, request: Request, path: str = EDITOR_PATH) -> str:
         return f"{base_url(request, self.settings)}{path}"
 
     def known_resource(self, request: Request, resource: str) -> bool:
@@ -159,7 +159,8 @@ class OAuthServer:
 
     async def protected_resource_metadata(self, request: Request) -> Response:
         issuer = base_url(request, self.settings)
-        path = "/assets/mcp" if request.url.path.endswith("/assets/mcp") else "/mcp"
+        # /.well-known/oauth-protected-resource[/<resource path>]; bare = the editor
+        path = request.url.path.removeprefix("/.well-known/oauth-protected-resource") or EDITOR_PATH
         if path not in self.resources:
             return JSONResponse({"error": "not_found"}, status_code=404)
         return JSONResponse(
@@ -427,7 +428,7 @@ class OAuthServer:
         self, client_id: str, scope: str, resource: str | None, request: Request
     ) -> Response:
         issuer = base_url(request, self.settings)
-        audience = resource or f"{issuer}/mcp"
+        audience = resource or f"{issuer}{EDITOR_PATH}"
         access = self.mint_access_token(
             scope=scope, client_id=client_id, issuer=issuer, audience=audience
         )
@@ -468,7 +469,7 @@ class OAuthServer:
             client_id=client_id,
             scope=scope or " ".join(self.settings.scopes),
             iss=issuer,
-            aud=audience or (f"{issuer}/mcp" if issuer else None),
+            aud=audience or (f"{issuer}{EDITOR_PATH}" if issuer else None),
         )
 
     def verify_access_token(self, token: str, audience: str | None = None) -> dict:

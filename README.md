@@ -9,7 +9,7 @@ make down      # stops everything and leaves nothing behind
 ```
 
 ```
-ChatGPT ─HTTPS─▶ ngrok ─▶ gateway (OAuth 2.1 + tool policy) ─┬─▶ /mcp        scribus-mcp ─▶ your Scribus window
+ChatGPT ─HTTPS─▶ ngrok ─▶ gateway (OAuth 2.1 + tool policy) ─┬─▶ /editor/mcp scribus-mcp ─▶ your Scribus window
                                                                └─▶ /assets/mcp assets ─▶ ~/Editorial/libro/assets
                           everything on 127.0.0.1 · files only inside ~/Editorial
 ```
@@ -43,7 +43,7 @@ On the first run, `bin/setup` creates `.env` (mode 600) and does the following:
 - imports your ngrok authtoken,
 - sets `EDITORIAL_ROOT=~/Editorial` and creates that folder (mode 700) with an `inbox/` for images.
 
-Then connect ChatGPT with **two connectors**, Scribus (`…/mcp`) and Editorial Assets (`…/assets/mcp`), using DCR, scope `mcp` and OIDC off. [docs/clients.md](docs/clients.md) has the exact settings.
+Then connect ChatGPT with **two connectors**, Scribus editor (`…/editor/mcp`) and Editorial Assets (`…/assets/mcp`), using DCR, scope `mcp` and OIDC off. [docs/clients.md](docs/clients.md) has the exact settings.
 
 ## Commands
 

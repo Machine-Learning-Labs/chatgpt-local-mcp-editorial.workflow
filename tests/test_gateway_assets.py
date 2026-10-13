@@ -63,8 +63,8 @@ def auth(app, path):
 def test_protected_resource_metadata_per_resource(client):
     assets = client.get("/.well-known/oauth-protected-resource/assets/mcp").json()
     assert assets["resource"] == ASSETS and assets["resource_name"] == "Editorial Assets"
-    scribus = client.get("/.well-known/oauth-protected-resource/mcp").json()
-    assert scribus["resource"] == f"{BASE}/mcp"
+    scribus = client.get("/.well-known/oauth-protected-resource/editor/mcp").json()
+    assert scribus["resource"] == f"{BASE}/editor/mcp"
     assert client.get("/.well-known/oauth-authorization-server/assets/mcp").status_code == 200
 
 
@@ -82,10 +82,10 @@ def test_challenge_points_to_assets_metadata(client):
 
 
 def test_tokens_are_not_interchangeable_between_resources(client, upstreams):
-    scribus_token = auth(client.app, "/mcp")
+    scribus_token = auth(client.app, "/editor/mcp")
     assets_token = auth(client.app, "/assets/mcp")
     assert client.post("/assets/mcp", json={}, headers=scribus_token).status_code == 401
-    assert client.post("/mcp", json={}, headers=assets_token).status_code == 401
+    assert client.post("/editor/mcp", json={}, headers=assets_token).status_code == 401
     assert upstreams.requests == []
 
 

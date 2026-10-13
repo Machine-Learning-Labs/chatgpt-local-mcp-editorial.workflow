@@ -47,14 +47,14 @@ def test_cli_token(env, capsys):
     assert main(["token", "--ttl", "120", "--public-url", "https://t.example"]) == 0
     claims = Signer(SECRET).decode(capsys.readouterr().out.strip(), typ="access")
     assert claims["exp"] - claims["iat"] == 120
-    assert claims["aud"] == "https://t.example/mcp"
+    assert claims["aud"] == "https://t.example/editor/mcp"
     assert claims["scope"] == "mcp"
 
 
 def test_cli_token_defaults_to_local_resource(env, capsys):
     assert main(["token"]) == 0
     claims = Signer(SECRET).decode(capsys.readouterr().out.strip(), typ="access")
-    assert claims["aud"] == "http://127.0.0.1:8080/mcp"
+    assert claims["aud"] == "http://127.0.0.1:8080/editor/mcp"
 
 
 def test_cli_token_for_assets_resource(env, capsys):

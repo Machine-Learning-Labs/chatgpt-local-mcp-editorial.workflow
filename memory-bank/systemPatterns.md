@@ -16,7 +16,7 @@ The full diagram and flow are in [docs/architecture.md](../docs/architecture.md)
 - `Policy.apply_call` validates **and rewrites** `tools/call` params. Path arguments (`PATH_ARG` regex: `path`, `*_path`, `*_dir`, `file`, …, found at any depth) are resolved with `realpath` against `POLICY_ROOT` and forwarded in absolute form, so the upstream acts on exactly what was checked.
 - A refusal is a JSON-RPC **result** with `isError: true` and the reason, not a transport error, so the model can read it and recover. Batches containing a refused call are rejected whole.
 - Only `tools/list` and `initialize` responses are buffered and rewritten (JSON or SSE). Everything else is streamed. If a rewrite fails, the gateway answers 502 and never passes the response through unfiltered.
-- Tokens are audience-bound. The proxy checks `aud` against `base_url(request)/mcp`, so local checks need `bin/token --local`.
+- Tokens are audience-bound. The proxy checks `aud` against `base_url(request)` + the resource path (`/editor/mcp` or `/assets/mcp`, constants in `config.py`), so local checks need `bin/token --local`.
 - Client IP: the last `X-Forwarded-For` hop is used, and only when the peer is in `GATEWAY_TRUSTED_PROXIES`.
 
 ## Ops

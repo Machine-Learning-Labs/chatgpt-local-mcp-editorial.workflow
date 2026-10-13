@@ -49,7 +49,7 @@ preflight() {
     [[ "$rperm" == 700 ]] && ok "editorial folder $root (700)" || warn "editorial folder $root has permissions $rperm (chmod 700)"
   else err "editorial folder $root missing: run bin/setup"; fi
   [[ -z "$(env_get GATEWAY_ALLOWED_CLIENT_CIDRS)" ]] \
-    && warn "GATEWAY_ALLOWED_CLIENT_CIDRS empty: any IP can call /mcp with a valid token (see docs/security.md)"
+    && warn "GATEWAY_ALLOWED_CLIENT_CIDRS empty: any IP can call the MCP endpoints with a valid token (see docs/security.md)"
 
   local mode; mode="$(mcp_mode)"
   case "$mode" in
@@ -134,9 +134,9 @@ assets_live() {
   code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$local_url/assets/mcp")"
   [[ "$code" == "401" ]] && ok "/assets/mcp without token → 401" || err "/assets/mcp without token returned $code"
   token="$("$ROOT/bin/token" --quiet --local --assets)" || { err "could not mint an assets token"; return; }
-  body="$(curl -sS -X POST "$local_url/mcp" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' -d '{}' -o /dev/null -w '%{http_code}')"
+  body="$(curl -sS -X POST "$local_url/editor/mcp" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' -d '{}' -o /dev/null -w '%{http_code}')"
   [[ "$body" == "401" ]] && ok "assets token rejected by the Scribus connector (separate audience)" \
-    || err "assets token accepted by /mcp ($body)"
+    || err "assets token accepted by /editor/mcp ($body)"
   body="$(curl -sS -X POST "$local_url/assets/mcp" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
     -H 'Accept: application/json, text/event-stream' -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' || true)"
   if grep -q '"import_image"' <<<"$body" && grep -q 'openai/fileParams' <<<"$body"; then
@@ -162,19 +162,19 @@ live() {
   curl -fsS "$local_url/healthz" >/dev/null && ok "gateway healthy at $local_url" || { err "gateway not reachable (make up?)"; return; }
   curl -fsS "$local_url/.well-known/oauth-authorization-server" | grep -q '"code_challenge_methods_supported"' \
     && ok "OAuth metadata served" || err "OAuth metadata missing"
-  code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$local_url/mcp")"
-  [[ "$code" == "401" ]] && ok "/mcp without token → 401" || err "/mcp without token returned $code"
+  code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$local_url/editor/mcp")"
+  [[ "$code" == "401" ]] && ok "/editor/mcp without token → 401" || err "/editor/mcp without token returned $code"
 
   token="$("$ROOT/bin/token" --quiet --local)" || { err "could not mint a token"; return; }
-  if body="$(mcp_initialize "$local_url/mcp" "$token")" && grep -q '"serverInfo"' <<<"$body"; then
+  if body="$(mcp_initialize "$local_url/editor/mcp" "$token")" && grep -q '"serverInfo"' <<<"$body"; then
     ok "MCP initialize through gateway: $(grep -oE '"serverInfo": ?\{[^}]*\}' <<<"$body" | head -n1)"
   else
     err "MCP initialize through gateway failed (upstream down? make logs)"
   fi
-  body="$(mcp_call "$local_url/mcp" "$token" '{"name":"save_document_as","arguments":{"path":"/etc/editorial-check.sla"}}' || true)"
+  body="$(mcp_call "$local_url/editor/mcp" "$token" '{"name":"save_document_as","arguments":{"path":"/etc/editorial-check.sla"}}' || true)"
   grep -q 'Refused' <<<"$body" && ok "policy: path outside $(editorial_root) refused" \
     || err "policy did NOT refuse a path outside the editorial folder"
-  body="$(mcp_call "$local_url/mcp" "$token" '{"name":"run_script","arguments":{}}' || true)"
+  body="$(mcp_call "$local_url/editor/mcp" "$token" '{"name":"run_script","arguments":{}}' || true)"
   grep -q 'Refused' <<<"$body" && ok "policy: run_script refused" || err "policy did NOT refuse run_script"
   [[ "$(mcp_mode)" == "host" ]] && host_live "$local_url" "$token"
   assets_live "$local_url"
@@ -183,7 +183,7 @@ live() {
     code="$(curl -s -o /dev/null -w '%{http_code}' "$public/.well-known/oauth-protected-resource")"
     [[ "$code" == "200" ]] && ok "public URL $public" || err "public URL $public returned $code"
     token="$("$ROOT/bin/token" --quiet)"
-    if body="$(mcp_initialize "$public/mcp" "$token")" && grep -q '"serverInfo"' <<<"$body"; then
+    if body="$(mcp_initialize "$public/editor/mcp" "$token")" && grep -q '"serverInfo"' <<<"$body"; then
       ok "MCP initialize through ngrok"
       token="$("$ROOT/bin/token" --quiet --assets)"
       body="$(mcp_initialize "$public/assets/mcp" "$token" || true)"

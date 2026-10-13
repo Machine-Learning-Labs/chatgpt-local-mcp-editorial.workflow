@@ -8,7 +8,7 @@
 #   bin/token --assets        token for the Editorial Assets connector (/assets/mcp)
 source "$(dirname "$0")/lib.sh"
 
-QUIET=0 LOCAL=0 RESOURCE=/mcp ARGS=()
+QUIET=0 LOCAL=0 RESOURCE=/editor/mcp ARGS=()
 while (( $# )); do
   case "$1" in
     -q|--quiet) QUIET=1 ;;
@@ -43,7 +43,7 @@ if (( QUIET )); then echo "$TOKEN"; exit 0; fi
 
 URL="${PUBLIC:-$(gateway_local_url)}$RESOURCE"
 cat <<EOF
-${C_GRN}MCP URL${C_OFF}   $URL
+${C_GRN}Editor${C_OFF}    $URL
 ${C_GRN}Assets${C_OFF}    ${PUBLIC:-$(gateway_local_url)}/assets/mcp  (second connector: images → $(editorial_root)/$(env_get ASSETS_SUBDIR libro/assets))
 ${C_GRN}Token${C_OFF}     $TOKEN
 
