@@ -99,6 +99,22 @@ compose_env() {
 mcp_mode() { env_get MCP_MODE container; }
 editorial_root() { env_get EDITORIAL_ROOT "$HOME/Editorial"; }
 
+# The MCP may read, write and delete everything under EDITORIAL_ROOT: it must be a
+# dedicated folder, never "/", $HOME or a parent of $HOME.
+root_is_dedicated() {
+  local root="${1%/}" home="${HOME%/}"
+  [[ -n "$root" && "$root" == /* && "$root" != "$home" && "$home" != "$root"/* ]]
+}
+
+# Human login accounts other than the current user (uid 1000-59999 with a real shell).
+# scribus-mcp and the assets server trust every local process: this stack is for a
+# single-user machine (docs/security.md, "Other users on this machine").
+other_login_users() {
+  getent passwd 2>/dev/null \
+    | awk -F: -v me="$(id -un)" '$3 >= 1000 && $3 < 60000 && $1 != me && $7 !~ /(nologin|false)$/ {print $1}' \
+    | sort -u | tr '\n' ' '
+}
+
 # Container user so files in EDITORIAL_ROOT end up owned by you:
 # rootless podman maps container root to your user; docker needs your uid:gid.
 container_user() {

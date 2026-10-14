@@ -54,6 +54,8 @@ if [[ -z "$(env_get EDITORIAL_ROOT)" ]]; then
 fi
 root_dir="$(env_get EDITORIAL_ROOT)"
 [[ "$root_dir" == /* ]] || die "EDITORIAL_ROOT must be an absolute path (got $root_dir)"
+root_is_dedicated "$root_dir" \
+  || die "EDITORIAL_ROOT=$root_dir is not a dedicated folder: the MCP may read, write and delete everything inside it. Use something like $HOME/Editorial."
 if [[ -z "$(env_get ASSETS_SECRET)" ]]; then
   env_set ASSETS_SECRET "$(random_secret 64)"
   ok "generated ASSETS_SECRET (signs single-use upload links)"

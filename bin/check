@@ -44,12 +44,21 @@ preflight() {
 
   local root; root="$(editorial_root)"
   if [[ "$root" != /* ]]; then err "EDITORIAL_ROOT must be absolute (got $root)"
+  elif ! root_is_dedicated "$root"; then err "EDITORIAL_ROOT=$root is not a dedicated folder (never /, \$HOME or a parent of it)"
   elif [[ -d "$root" ]]; then
     local rperm; rperm="$(stat -c %a "$root")"
     [[ "$rperm" == 700 ]] && ok "editorial folder $root (700)" || warn "editorial folder $root has permissions $rperm (chmod 700)"
   else err "editorial folder $root missing: run bin/setup"; fi
   [[ -z "$(env_get GATEWAY_ALLOWED_CLIENT_CIDRS)" ]] \
     && warn "GATEWAY_ALLOWED_CLIENT_CIDRS empty: any IP can call the MCP endpoints with a valid token (see docs/security.md)"
+
+  info "single-user machine"
+  local others; others="$(other_login_users)"
+  if [[ -z "$others" ]]; then
+    ok "no other login accounts (scribus-mcp and the assets server trust every local process)"
+  else
+    warn "other login accounts on this machine: ${others% }. They can reach scribus-mcp on 127.0.0.1 without the gateway's policy (docs/security.md, 'Other users on this machine')"
+  fi
 
   local mode; mode="$(mcp_mode)"
   case "$mode" in
