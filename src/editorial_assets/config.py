@@ -5,7 +5,15 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
-DEFAULT_DOWNLOAD_HOSTS = (".oaiusercontent.com", ".openai.com", ".chatgpt.com")
+# Where ChatGPT serves conversation files from: its own domains, and the Azure storage
+# accounts behind them (ChatGPT web hands over the blob URL directly, e.g.
+# oaisdmntprnortheu.blob.core.windows.net). "*" is part of one label, never ".".
+DEFAULT_DOWNLOAD_HOSTS = (
+    ".oaiusercontent.com",
+    ".openai.com",
+    ".chatgpt.com",
+    "oaisdmntpr*.blob.core.windows.net",
+)
 
 
 def _list(value: str | None, default: tuple[str, ...]) -> tuple[str, ...]:

@@ -1,6 +1,7 @@
 """Download a file that ChatGPT hands over (``openai/fileParams`` → ``download_url``).
 
-Guards: https only, host must match the allowlist (suffix match on a dot boundary),
+Guards: https only, host must match the allowlist (exact, ``.suffix`` for any subdomain,
+or ``*`` standing for part of ONE label, as in ``oaisdmntpr*.blob.core.windows.net``),
 every resolved address must be public (no SSRF into localhost/LAN), redirects are
 followed by hand and re-checked hop by hop, size is capped while streaming, no
 cookies or credentials are ever sent.
@@ -9,7 +10,9 @@ cookies or credentials are ever sent.
 from __future__ import annotations
 
 import asyncio
+import functools
 import ipaddress
+import re
 import socket
 from collections.abc import Awaitable, Callable
 from urllib.parse import urljoin, urlsplit
@@ -34,9 +37,20 @@ def host_allowed(host: str, allowed: tuple[str, ...]) -> bool:
         if pattern.startswith("."):
             if host.endswith(pattern) and len(host) > len(pattern):
                 return True
+        elif "*" in pattern:
+            if _glob(pattern).fullmatch(host):
+                return True
         elif host == pattern:
             return True
     return False
+
+
+@functools.lru_cache(maxsize=64)
+def _glob(pattern: str) -> re.Pattern[str]:
+    """``*`` matches one or more label characters, never a dot: ``oai*.blob.core.windows.net``
+    takes ``oaisdmntprnortheu.blob.core.windows.net`` but not ``oai.evil.blob.core.windows.net``."""
+    parts = re.split(r"(\*)", pattern.lower())
+    return re.compile("".join("[a-z0-9-]+" if part == "*" else re.escape(part) for part in parts))
 
 
 async def check_url(url: str, allowed: tuple[str, ...], resolver: Resolver) -> None:

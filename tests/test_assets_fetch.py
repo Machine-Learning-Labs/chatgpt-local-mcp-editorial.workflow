@@ -35,6 +35,33 @@ def test_host_allowed(host, ok):
 
 
 @pytest.mark.parametrize(
+    "host,ok",
+    [
+        ("oaisdmntprnortheu.blob.core.windows.net", True),  # what ChatGPT web hands over
+        ("OAISDMNTPRCENTRALUS.blob.core.windows.net", True),
+        ("oaisdmntpr.blob.core.windows.net", False),  # "*" needs at least one character
+        ("evil.blob.core.windows.net", False),  # another Azure tenant
+        ("oaisdmntprx.evil.blob.core.windows.net", False),  # "*" never spans a dot
+        ("oaisdmntprx.blob.core.windows.net.evil.example", False),
+        ("x.oaisdmntprx.blob.core.windows.net", False),
+    ],
+)
+def test_host_allowed_with_label_wildcard(host, ok):
+    assert host_allowed(host, ("oaisdmntpr*.blob.core.windows.net",)) is ok
+
+
+def test_default_hosts_cover_chatgpt_web_file_urls():
+    from editorial_assets.config import DEFAULT_DOWNLOAD_HOSTS
+
+    for host in (
+        "sdmntprcentralus.oaiusercontent.com",
+        "oaisdmntprnortheu.blob.core.windows.net",
+    ):
+        assert host_allowed(host, DEFAULT_DOWNLOAD_HOSTS), host
+    assert not host_allowed("someone.blob.core.windows.net", DEFAULT_DOWNLOAD_HOSTS)
+
+
+@pytest.mark.parametrize(
     "url,message",
     [
         ("http://x.oaiusercontent.com/f", "https"),

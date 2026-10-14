@@ -47,7 +47,7 @@ If `import_image` can't receive the file (on ChatGPT web this isn't guaranteed f
 | Control | Detail |
 |---|---|
 | OAuth with its own audience | `aud` is `…/assets/mcp`, so a token for one connector doesn't work on the other |
-| Downloads | HTTPS only, hosts in `ASSETS_DOWNLOAD_HOSTS` (`.oaiusercontent.com`, `.openai.com`, `.chatgpt.com`), checked again after every redirect, public IPs only (no SSRF into localhost or the LAN), no cookies or credentials, size capped while streaming (`ASSETS_MAX_BYTES`, 30 MB) |
+| Downloads | HTTPS only, hosts in `ASSETS_DOWNLOAD_HOSTS`: `.oaiusercontent.com`, `.openai.com`, `.chatgpt.com` and `oaisdmntpr*.blob.core.windows.net` (ChatGPT web hands over the URL of OpenAI's Azure storage account directly; `*` stands for part of one label, so other Azure tenants stay out), checked again after every redirect, public IPs only (no SSRF into localhost or the LAN), no cookies or credentials, size capped while streaming (`ASSETS_MAX_BYTES`, 30 MB). The host list is a narrowing, not the safeguard: the image validation is. |
 | Image validation | Magic bytes. The pixel cap (80 Mpx) is checked on the header **before anything is decoded**, then a full decode with Pillow. The format must match the magic bytes. **Nothing may follow `IEND`/`EOI`**, which rules out hidden payloads and polyglots. SVG, GIF and anything else is rejected. |
 | Provenance | PNG and JPEG are kept **byte for byte**, so the **C2PA** credentials OpenAI embeds survive. `list_assets` and `import_image` report `c2pa: true`. WebP is converted to PNG, because Scribus 1.6 doesn't read it reliably. |
 | Writing | Only inside `EDITORIAL_ROOT`, checked twice (gateway path jail and server). Random names, never overwritten, atomic writes, mode 0640. |
@@ -56,5 +56,5 @@ If `import_image` can't receive the file (on ChatGPT web this isn't guaranteed f
 
 ## Known limits
 
-- ChatGPT web may not pass the file to a developer-mode connector (`openai/fileParams` is unreliable on web). It did work for Canva in the same conversation. The assets server logs every `import_image` call (`make logs s=assets`), so you can see what arrives.
+- ChatGPT web does pass generated and uploaded files to the connector (`openai/fileParams`, verified 2026-10-14). The `download_url` it fills points at `oaisdmntpr<region>.blob.core.windows.net`, which is why that pattern is in the default host list. The assets server logs every `import_image` call (`make logs s=assets`), so you can see what arrives.
 - The ChatGPT download URL is temporary, so `import_image` has to be called right after generating the image.

@@ -95,7 +95,7 @@ services:
       EDITORIAL_ROOT: ${EDITORIAL_ROOT}
       ASSETS_SECRET: ${ASSETS_SECRET:?run bin/setup first}
       ASSETS_SUBDIR: ${ASSETS_SUBDIR:-libro/assets}
-      ASSETS_DOWNLOAD_HOSTS: ${ASSETS_DOWNLOAD_HOSTS:-.oaiusercontent.com,.openai.com,.chatgpt.com}
+      ASSETS_DOWNLOAD_HOSTS: ${ASSETS_DOWNLOAD_HOSTS:-.oaiusercontent.com,.openai.com,.chatgpt.com,oaisdmntpr*.blob.core.windows.net}
       ASSETS_MAX_BYTES: ${ASSETS_MAX_BYTES:-31457280}
       ASSETS_HOST: 0.0.0.0
       ASSETS_PORT: "8766"
