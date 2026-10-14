@@ -38,6 +38,39 @@ def test_issuer_follows_forwarded_headers(client):
     assert body["issuer"] == "https://abc.ngrok-free.app"
 
 
+def test_issuer_uses_host_and_only_trusted_forwarded_proto():
+    """ngrok appends to X-Forwarded-Proto and passes a client-supplied X-Forwarded-Host
+    through, so the issuer is Host + the LAST proto hop, and only from a trusted peer."""
+    from starlette.requests import Request
+
+    from mcp_oauth_gateway.oauth import base_url
+
+    settings = make_settings()
+
+    def req(peer: str, headers: dict) -> Request:
+        return Request(
+            {
+                "type": "http",
+                "scheme": "http",
+                "server": ("127.0.0.1", 8080),
+                "path": "/",
+                "query_string": b"",
+                "headers": [(k.encode(), v.encode()) for k, v in headers.items()],
+                "client": (peer, 1),
+            }
+        )
+
+    ngrok = {
+        "host": "abc.ngrok-free.app",
+        "x-forwarded-proto": "http, https",
+        "x-forwarded-host": "evil.example",
+    }
+    assert base_url(req("127.0.0.1", ngrok), settings) == "https://abc.ngrok-free.app"
+    # an untrusted peer cannot upgrade the scheme, nor rename the host
+    direct = {"host": "127.0.0.1:8080", "x-forwarded-proto": "https", "x-forwarded-host": "e"}
+    assert base_url(req("198.51.100.1", direct), settings) == "http://127.0.0.1:8080"
+
+
 def test_public_url_overrides_headers():
     app = create_app(make_settings(public_url="https://fixed.example"))
     with TestClient(app) as client:

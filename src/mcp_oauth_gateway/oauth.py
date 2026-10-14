@@ -4,7 +4,8 @@ Implements:
 - RFC 9728 protected resource metadata
 - RFC 8414 authorization server metadata
 - RFC 7591 dynamic client registration (stateless: the client_id is a signed token)
-- Authorization code + PKCE (S256 only), refresh token rotation
+- Authorization code + PKCE (S256 only); refresh tokens are re-issued on use (stateless,
+  so the previous one stays valid until it expires: see docs/security.md)
 - RFC 9207 ``iss`` in authorization responses, RFC 8707 resource/audience binding
 """
 
@@ -12,6 +13,7 @@ from __future__ import annotations
 
 import base64
 import hmac
+import re
 import time
 from collections import defaultdict, deque
 from urllib.parse import unquote_plus, urlencode, urlsplit
@@ -20,23 +22,28 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from .config import ASSETS_PATH, EDITOR_PATH, Settings
+from .network import client_ip, forwarded_proto
 from .pages import consent_page, error_page
 from .tokens import Signer, TokenError, pkce_s256
 
 LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1", "[::1]"}
 FORBIDDEN_SCHEMES = {"javascript", "data", "file", "vbscript", "about", "blob"}
 NO_STORE = {"Cache-Control": "no-store", "Pragma": "no-cache"}
+# RFC 7636 §4.1: 43-128 unreserved characters.
+CODE_VERIFIER = re.compile(r"^[A-Za-z0-9\-._~]{43,128}$")
 
 
 def base_url(request: Request, settings: Settings) -> str:
-    """Public origin of the gateway: PUBLIC_URL, or derived from proxy headers (ngrok)."""
+    """Public origin of the gateway: PUBLIC_URL, or scheme + ``Host`` of the request.
+
+    ``Host`` is what ngrok routes on and forwards unchanged. ``X-Forwarded-Host`` is
+    ignored on purpose (ngrok passes a client-supplied one through), and
+    ``X-Forwarded-Proto`` counts only from a trusted proxy (network.py).
+    """
     if settings.public_url:
         return settings.public_url
-    proto = request.headers.get("x-forwarded-proto", request.url.scheme).split(",")[0].strip()
-    host = (
-        request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc
-    )
-    return f"{proto}://{host.split(',')[0].strip()}"
+    host = (request.headers.get("host") or request.url.netloc).split(",")[0].strip()
+    return f"{forwarded_proto(request, settings)}://{host}"
 
 
 def valid_redirect_uri(uri: str) -> bool:
@@ -334,7 +341,9 @@ class OAuthServer:
                 iss=req.get("issuer"),
             )
 
-        ip = request.client.host if request.client else "unknown"
+        # Keyed by the real client address (last trusted X-Forwarded-For hop), so a
+        # spoofed header can't reset the counter.
+        ip = client_ip(request, self.settings) or "unknown"
         if self.limiter.blocked(ip):
             return HTMLResponse(error_page("Too many failed attempts. Wait 10 minutes."), 429)
         password = str(form.get("password", ""))
@@ -406,7 +415,9 @@ class OAuthServer:
         if form.get("redirect_uri") and form.get("redirect_uri") != code["redirect_uri"]:
             return oauth_error("invalid_grant", "redirect_uri mismatch")
         verifier = str(form.get("code_verifier", ""))
-        if not verifier or not hmac.compare_digest(pkce_s256(verifier), code["code_challenge"]):
+        if not CODE_VERIFIER.match(verifier):
+            return oauth_error("invalid_grant", "code_verifier must be 43-128 unreserved chars")
+        if not hmac.compare_digest(pkce_s256(verifier), code["code_challenge"]):
             return oauth_error("invalid_grant", "PKCE verification failed")
         if not self.used_codes.consume(code["jti"], code["exp"]):
             return oauth_error("invalid_grant", "authorization code already used")

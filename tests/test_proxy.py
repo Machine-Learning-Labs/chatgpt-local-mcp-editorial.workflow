@@ -95,12 +95,50 @@ def test_proxies_post_with_oauth_token(client, upstream):
     assert forwarded.headers["x-mcp-subject"] == "owner"
 
 
-def test_proxies_sse_get_and_subpath(client, upstream):
-    response = client.get("/editor/mcp/stream?x=1", headers=bearer(client.app))
+def test_proxies_sse_get_with_query(client, upstream):
+    response = client.get("/editor/mcp?x=1", headers=bearer(client.app))
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/event-stream")
     assert b"event: message" in response.content
-    assert str(upstream.requests[-1].url) == "http://upstream:8000/mcp/stream?x=1"
+    assert str(upstream.requests[-1].url) == "http://upstream:8000/mcp?x=1"
+
+
+def test_sub_paths_are_not_proxied(client, upstream):
+    """Streamable HTTP is one endpoint; anything below it must not reach the upstream."""
+    for path in ("/editor/mcp/stream", "/editor/mcp/messages", "/assets/mcp/x"):
+        assert client.get(path, headers=bearer(client.app)).status_code == 404, path
+    assert upstream.requests == []
+
+
+def test_chunked_body_over_limit_is_cut_off(upstream):
+    """No Content-Length: the route's max_body_size stops the stream at the cap."""
+    app = create_app(
+        make_settings(max_body_bytes=100), upstream_transport=httpx.MockTransport(upstream)
+    )
+
+    def chunks():
+        yield b"x" * 80
+        yield b"x" * 80
+
+    with TestClient(app, base_url=BASE) as client:
+        response = client.post(
+            "/editor/mcp",
+            content=chunks(),
+            headers={**bearer(app), "content-type": "application/json"},
+        )
+    assert response.status_code == 413
+    assert upstream.requests == []
+
+
+def test_upstream_error_does_not_leak_its_address():
+    def boom(request):
+        raise httpx.ConnectError("refused", request=request)
+
+    app = create_app(make_settings(), upstream_transport=httpx.MockTransport(boom))
+    with TestClient(app, base_url=BASE) as client:
+        response = client.post("/editor/mcp", json=INIT, headers=bearer(app))
+    assert response.status_code == 502
+    assert "upstream:8000" not in response.text
 
 
 def test_delete_session(client, upstream):
@@ -337,6 +375,14 @@ def test_client_ip_uses_last_forwarded_hop_from_trusted_proxy(upstream):
     # untrusted peer: header ignored entirely
     assert client_ip(req("198.51.100.1", "203.0.113.5"), settings) == "198.51.100.1"
 
+    # The allowlist sees the same address: a client behind ngrok that sends an allowed
+    # address as the first hop is still judged by the hop ngrok appended.
+    from mcp_oauth_gateway.network import ip_allowed
+
+    allow = make_settings(allowed_client_cidrs=(ipaddress.ip_network("203.0.113.0/24"),))
+    assert not ip_allowed(req("127.0.0.1", "203.0.113.5, 198.51.100.1"), allow)
+    assert ip_allowed(req("127.0.0.1", "198.51.100.1, 203.0.113.5"), allow)
+
 
 def test_token_endpoint_ip_allowlist(upstream):
     app = _ip_app(upstream)
@@ -360,3 +406,16 @@ def test_machine_endpoint_body_cap(client):
         "/register", content=b"x" * (65 * 1024), headers={"content-type": "application/json"}
     )
     assert response.status_code == 413
+
+
+def test_oauth_endpoints_cap_chunked_bodies(client):
+    """/token, /register and the consent POST are capped even without Content-Length."""
+    for path in ("/token", "/register", "/authorize"):
+
+        def chunks():
+            yield b"a=" + b"x" * (65 * 1024)
+
+        response = client.post(
+            path, content=chunks(), headers={"content-type": "application/x-www-form-urlencoded"}
+        )
+        assert response.status_code == 413, path

@@ -16,13 +16,15 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from . import __version__
 from .config import ASSETS_PATH, EDITOR_PATH, Settings
+from .network import client_ip, ip_allowed
 from .oauth import OAuthServer
-from .proxy import McpProxy, UploadPassthrough, client_ip, ip_allowed
+from .proxy import McpProxy, UploadPassthrough
 
 audit = logging.getLogger("mcp_oauth_gateway.audit")
 UPSTREAM_TIMEOUT = httpx.Timeout(connect=10.0, read=None, write=60.0, pool=10.0)
 # Endpoints only machines call (ChatGPT/Claude backends): IP allowlist + small bodies.
 _MACHINE_PATHS = {"/token", "/register"}
+# OAuth form bodies (/token, /register and the consent POST) are tiny.
 _MACHINE_MAX_BODY = 64 * 1024
 _SECURITY_HEADERS = [
     (b"x-content-type-options", b"nosniff"),
@@ -115,6 +117,9 @@ def create_app(
             }
         )
 
+    # Every body-carrying route has a max_body_size, enforced by Starlette while the body
+    # streams in, so a chunked request without Content-Length is cut off at the cap too.
+    # Streamable HTTP is one endpoint per resource: no sub-paths are routed upstream.
     methods = ["GET", "POST", "DELETE"]
     routes = [
         Route("/", root),
@@ -129,11 +134,15 @@ def create_app(
             f"/.well-known/oauth-authorization-server{EDITOR_PATH}",
             oauth.authorization_server_metadata,
         ),
-        Route("/register", oauth.register, methods=["POST"]),
-        Route("/authorize", oauth.authorize, methods=["GET", "POST"]),
-        Route("/token", oauth.token, methods=["POST"]),
-        Route(EDITOR_PATH, proxy.handle, methods=methods),
-        Route(f"{EDITOR_PATH}/{{path:path}}", proxy.handle, methods=methods),
+        Route("/register", oauth.register, methods=["POST"], max_body_size=_MACHINE_MAX_BODY),
+        Route(
+            "/authorize",
+            oauth.authorize,
+            methods=["GET", "POST"],
+            max_body_size=_MACHINE_MAX_BODY,
+        ),
+        Route("/token", oauth.token, methods=["POST"], max_body_size=_MACHINE_MAX_BODY),
+        Route(EDITOR_PATH, proxy.handle, methods=methods, max_body_size=settings.max_body_bytes),
     ]
     if assets is not None:
         upload = UploadPassthrough(settings, lambda: state["client"])
@@ -146,9 +155,15 @@ def create_app(
                 f"/.well-known/oauth-authorization-server{ASSETS_PATH}",
                 oauth.authorization_server_metadata,
             ),
-            Route(ASSETS_PATH, assets.handle, methods=methods),
-            Route(f"{ASSETS_PATH}/{{path:path}}", assets.handle, methods=methods),
-            Route("/upload/{token}", upload.handle, methods=["GET", "POST"]),
+            Route(
+                ASSETS_PATH, assets.handle, methods=methods, max_body_size=settings.max_body_bytes
+            ),
+            Route(
+                "/upload/{token}",
+                upload.handle,
+                methods=["GET", "POST"],
+                max_body_size=settings.assets_max_upload_bytes,
+            ),
         ]
     middleware = [
         Middleware(GuardMiddleware, settings=settings),

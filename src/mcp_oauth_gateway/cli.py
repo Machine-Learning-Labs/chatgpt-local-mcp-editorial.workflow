@@ -21,12 +21,14 @@ def _serve(args: argparse.Namespace, settings: Settings) -> int:
 
     from .app import create_app
 
+    # proxy_headers stays OFF: uvicorn would replace the client address with the FIRST
+    # X-Forwarded-For hop, which the client itself controls (ngrok appends to the end).
+    # The gateway reads the last hop from trusted proxies instead (network.py).
     uvicorn.run(
         create_app(settings),
         host=args.host or settings.host,
         port=args.port or settings.port,
-        proxy_headers=True,
-        forwarded_allow_ips="*",
+        proxy_headers=False,
         log_level=args.log_level,
     )
     return 0

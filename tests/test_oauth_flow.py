@@ -294,6 +294,58 @@ def test_password_bruteforce_is_rate_limited(client):
     assert response.status_code == 429
 
 
+def test_rate_limit_key_ignores_spoofed_forwarded_for(client):
+    """The limiter is keyed by the real client address (TestClient's peer is not a trusted
+    proxy), so varying X-Forwarded-For on every attempt does not reset the counter."""
+    token = _consent_token(client, register(client))
+    for i in range(5):
+        client.post(
+            "/authorize",
+            data={"request": token, "password": "x", "decision": "approve"},
+            headers={"x-forwarded-for": f"198.51.100.{i}"},
+        )
+    response = client.post(
+        "/authorize",
+        data={"request": token, "password": "x", "decision": "approve"},
+        headers={"x-forwarded-for": "198.51.100.99"},
+    )
+    assert response.status_code == 429
+
+
+def test_consent_page_warns_about_requests_you_did_not_start(client):
+    reg = register(client, client_name="Totally ChatGPT")
+    response = client.get(
+        "/authorize",
+        params={
+            "response_type": "code",
+            "client_id": reg["client_id"],
+            "redirect_uri": REDIRECT,
+            "code_challenge": "x" * 43,
+            "code_challenge_method": "S256",
+        },
+    )
+    assert "Totally ChatGPT" in response.text
+    assert "did not start this connection" in response.text
+
+
+def test_malformed_code_verifier_is_invalid_grant(client):
+    """RFC 7636 charset/length is checked first: no 500 on a non-ASCII verifier."""
+    reg = register(client)
+    params = authorize(client, reg, secrets.token_urlsafe(48))
+    for bad in ("ñ" * 50, "short", ""):
+        response = client.post(
+            "/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": params["code"],
+                "client_id": reg["client_id"],
+                "code_verifier": bad,
+            },
+        )
+        assert response.status_code == 400, bad
+        assert response.json()["error"] == "invalid_grant"
+
+
 def test_rate_limiter_window():
     limiter = RateLimiter(limit=2, window=10)
     limiter.fail("ip", now=100)

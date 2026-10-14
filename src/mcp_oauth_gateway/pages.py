@@ -38,6 +38,8 @@ def consent_page(
 <h1>Authorize access to Scribus MCP</h1>
 <p><strong>{escape(client_name)}</strong> wants to use this MCP server.</p>
 <p class=muted>Redirect: {escape(redirect_uri)}<br>Scope: {escape(scope)}</p>
+<p class=muted>Anyone can register a client under this name.
+If you did not start this connection yourself a moment ago, deny it.</p>
 {err}
 <form method=post action=/authorize>
   <input type=hidden name=request value="{escape(request_token)}">

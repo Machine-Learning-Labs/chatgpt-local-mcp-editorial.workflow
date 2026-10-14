@@ -9,7 +9,6 @@ everything else is streamed untouched.
 
 from __future__ import annotations
 
-import ipaddress
 import json
 import logging
 from urllib.parse import urlsplit
@@ -20,6 +19,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
 
 from .config import EDITOR_PATH, Settings
+from .network import client_ip, ip_allowed
 from .oauth import OAuthServer, base_url
 from .policy import Policy, PolicyError
 from .tokens import TokenError
@@ -62,30 +62,6 @@ _DROP_RESPONSE = {
 # Responses to these methods are small and get rewritten by the policy.
 _REWRITE_METHODS = {"tools/list", "initialize"}
 _MAX_REWRITE_BYTES = 16 * 1024 * 1024
-
-
-def client_ip(request: Request, settings: Settings) -> str:
-    """Peer address, or the address ngrok appended to X-Forwarded-For when the peer is trusted."""
-    peer = request.client.host if request.client else ""
-    forwarded = request.headers.get("x-forwarded-for", "")
-    if forwarded and _in(peer, settings.trusted_proxy_cidrs):
-        # The proxy appends the real client last; anything before it is client-controlled.
-        return forwarded.split(",")[-1].strip()
-    return peer
-
-
-def ip_allowed(request: Request, settings: Settings) -> bool:
-    if not settings.allowed_client_cidrs:
-        return True
-    return _in(client_ip(request, settings), settings.allowed_client_cidrs)
-
-
-def _in(ip: str, networks) -> bool:
-    try:
-        address = ipaddress.ip_address(ip)
-    except ValueError:
-        return False
-    return any(address in net for net in networks)
 
 
 class McpProxy:
@@ -151,6 +127,8 @@ class McpProxy:
                 headers={"WWW-Authenticate": 'Bearer error="insufficient_scope"'},
             )
 
+        # Declared sizes are refused before reading anything. Undeclared (chunked) bodies
+        # are cut off by the route's max_body_size while they stream in (app.py).
         declared = request.headers.get("content-length")
         if declared and declared.isdigit() and int(declared) > self.settings.max_body_bytes:
             return JSONResponse({"error": "payload_too_large"}, status_code=413)
@@ -256,8 +234,9 @@ class McpProxy:
     async def _forward(
         self, request: Request, body: bytes, claims: dict, rewrite: bool
     ) -> Response:
-        suffix = request.path_params.get("path", "")
-        url = self.upstream + (f"/{suffix}" if suffix else "")
+        # Streamable HTTP is a single endpoint: only the resource path itself is routed
+        # here, never sub-paths, so the upstream URL is fixed.
+        url = self.upstream
         if request.url.query:
             url += f"?{request.url.query}"
         headers = {k: v for k, v in request.headers.items() if k.lower() not in _DROP_REQUEST}
@@ -275,9 +254,10 @@ class McpProxy:
         try:
             upstream = await client.send(upstream_request, stream=True)
         except httpx.HTTPError as exc:
+            # The exception names the internal upstream address: keep it in the log only.
             log.warning("upstream MCP unreachable: %s", exc)
             return JSONResponse(
-                {"error": "bad_gateway", "error_description": f"upstream MCP unreachable: {exc}"},
+                {"error": "bad_gateway", "error_description": "upstream MCP unreachable"},
                 status_code=502,
             )
         response_headers = {

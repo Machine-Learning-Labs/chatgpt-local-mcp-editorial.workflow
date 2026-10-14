@@ -105,3 +105,17 @@ def test_cli_config_error(monkeypatch, capsys):
     monkeypatch.delenv("GATEWAY_SECRET", raising=False)
     assert main(["token"]) == 2
     assert "configuration error" in capsys.readouterr().err
+
+
+def test_serve_does_not_let_uvicorn_rewrite_the_client_address(env, monkeypatch):
+    """With proxy_headers=True and forwarded_allow_ips="*", uvicorn would hand the app the
+    FIRST X-Forwarded-For hop, which the client controls (ngrok appends to the end). The
+    gateway reads the last hop from trusted proxies itself, so uvicorn must stay out."""
+    import uvicorn
+
+    calls: dict = {}
+    monkeypatch.setattr(uvicorn, "run", lambda app, **kwargs: calls.update(kwargs))
+    assert main(["serve", "--host", "127.0.0.1", "--port", "1", "--log-level", "warning"]) == 0
+    assert calls["proxy_headers"] is False
+    assert "forwarded_allow_ips" not in calls
+    assert (calls["host"], calls["port"]) == ("127.0.0.1", 1)
