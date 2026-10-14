@@ -1,5 +1,7 @@
 import os
 import stat
+import struct
+import zlib
 from pathlib import Path
 
 import pytest
@@ -72,6 +74,24 @@ def test_size_cap():
 def test_decompression_bomb_rejected():
     with pytest.raises(AssetError, match="too many pixels"):
         validate(png_bytes(size=(400, 400)), MAX, 10_000)
+
+
+def test_oversized_header_is_refused_before_any_pixel_is_decoded(monkeypatch):
+    """Between 1x and 2x the cap Pillow only warns, so the header check must do the work:
+    a 4000x4000 header (16 Mpx, cap 10 Mpx) is refused without calling load()."""
+    from PIL import Image
+
+    data = png_bytes()
+    ihdr = struct.pack(">IIBBBBB", 4000, 4000, 8, 2, 0, 0, 0)
+    crc = struct.pack(">I", zlib.crc32(b"IHDR" + ihdr) & 0xFFFFFFFF)
+    bomb = data[:8] + struct.pack(">I", 13) + b"IHDR" + ihdr + crc + data[33:]
+
+    def decoded(self):
+        raise AssertionError("pixels were decoded")
+
+    monkeypatch.setattr(Image.Image, "load", decoded)
+    with pytest.raises(AssetError, match="too many pixels"):
+        validate(bomb, MAX, PIXELS)
 
 
 def test_jpeg_with_png_magic_mismatch_rejected():

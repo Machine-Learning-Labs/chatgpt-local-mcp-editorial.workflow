@@ -233,6 +233,18 @@ def build_server(
     return mcp
 
 
+def build_asgi(settings: AssetsSettings, **kwargs):
+    """The ASGI app uvicorn serves: the MCP app behind a request body limit.
+
+    Only the gateway reaches this server, and it already caps uploads, but a chunked
+    body without Content-Length would otherwise be spooled whole before any check.
+    """
+    from starlette.middleware.body_limit import RequestBodyLimitMiddleware
+
+    app = build_server(settings, **kwargs).streamable_http_app()
+    return RequestBodyLimitMiddleware(app, max_body_size=settings.max_bytes + 64 * 1024)
+
+
 def _public_base(settings: AssetsSettings, ctx: Context) -> str:
     """Public origin: ASSETS_PUBLIC_URL, or X-Forwarded-* set by the gateway."""
     if settings.public_url:

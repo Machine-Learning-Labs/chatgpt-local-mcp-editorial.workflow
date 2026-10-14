@@ -8,7 +8,7 @@ from starlette.testclient import TestClient
 
 from editorial_assets.config import AssetsSettings
 from editorial_assets.images import AssetError
-from editorial_assets.server import build_server, resolve_folder
+from editorial_assets.server import build_asgi, build_server, resolve_folder
 
 from .assets_helpers import png_bytes
 
@@ -49,6 +49,32 @@ def test_settings_validation(tmp_path):
         AssetsSettings(root="/x", secret=SECRET, subdir="../out")
     s = AssetsSettings.from_env({"EDITORIAL_ROOT": "/home/u/Editorial/", "ASSETS_SECRET": SECRET})
     assert s.default_dir == "/home/u/Editorial/libro/assets"
+
+
+def test_served_app_cuts_off_chunked_bodies_at_the_cap(tmp_path):
+    """What uvicorn serves (build_asgi) limits the request body even without
+    Content-Length, so an upload cannot be spooled whole into /tmp before any check."""
+    from mcp_oauth_gateway.tokens import Signer
+
+    root = tmp_path / "Editorial"
+    root.mkdir()
+    settings = AssetsSettings(root=str(root), secret=SECRET, max_bytes=1000)
+    transport = httpx.MockTransport(lambda request: httpx.Response(200, content=png_bytes()))
+    link = Signer(SECRET).issue("upload", 900, folder=str(root / "libro"), name=None)
+
+    def chunks():
+        for _ in range(3):
+            yield b"x" * 40_000
+
+    app = build_asgi(settings, transport=transport, resolver=public)
+    with TestClient(app, base_url="http://localhost:8766") as client:
+        response = client.post(
+            f"/upload/{link}",
+            content=chunks(),
+            headers={"content-type": "multipart/form-data; boundary=b0undary"},
+        )
+    assert response.status_code == 413
+    assert not (root / "libro").exists()
 
 
 def test_folder_jail(settings, tmp_path):

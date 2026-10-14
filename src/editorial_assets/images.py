@@ -15,6 +15,7 @@ import re
 import struct
 import time
 import unicodedata
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -107,13 +108,20 @@ def validate(data: bytes, max_bytes: int, max_pixels: int) -> ImageInfo:
         _png_chunks(data)
     elif magic == "JPEG" and not data.rstrip(b"\x00").endswith(b"\xff\xd9"):
         raise AssetError("data after the end of the JPEG (possible hidden payload)")
+    # Pillow only raises at 2x MAX_IMAGE_PIXELS (and warns at 1x): the explicit check below,
+    # on the header alone, is what refuses anything above the cap before a pixel is decoded.
     Image.MAX_IMAGE_PIXELS = max_pixels
     try:
-        with Image.open(io.BytesIO(data)) as probe:
-            probe.verify()
-        with Image.open(io.BytesIO(data)) as image:
-            image.load()
-            fmt, (width, height) = image.format, image.size
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", Image.DecompressionBombWarning)
+            with Image.open(io.BytesIO(data)) as probe:
+                width, height = probe.size  # from the header, nothing decoded yet
+                if width * height > max_pixels:
+                    raise AssetError("image has too many pixels")
+                probe.verify()
+            with Image.open(io.BytesIO(data)) as image:
+                image.load()
+                fmt = image.format
     except Image.DecompressionBombError as exc:
         raise AssetError("image has too many pixels") from exc
     except AssetError:
@@ -122,8 +130,6 @@ def validate(data: bytes, max_bytes: int, max_pixels: int) -> ImageInfo:
         raise AssetError(f"not a valid image: {exc.__class__.__name__}") from exc
     if fmt != magic:
         raise AssetError("file content does not match its image format")
-    if width * height > max_pixels:
-        raise AssetError("image has too many pixels")
     return ImageInfo(fmt, width, height, _has_c2pa(data, fmt) if fmt != "WEBP" else False)
 
 

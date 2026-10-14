@@ -26,9 +26,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     import uvicorn
 
-    from .server import build_server
+    from .server import build_asgi
 
-    app = build_server(settings).streamable_http_app()
+    app = build_asgi(settings)
     uvicorn.run(
         app, host=settings.host, port=settings.port, log_level=args.log_level, proxy_headers=False
     )
