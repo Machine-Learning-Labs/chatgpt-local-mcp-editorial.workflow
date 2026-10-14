@@ -24,6 +24,9 @@ services:
     read_only: true
     cap_drop: ["ALL"]
     security_opt: ["no-new-privileges:true"]
+    # Resource caps: a flood of requests cannot take the machine down with the service.
+    mem_limit: 512m
+    pids_limit: 256
     environment:
       GATEWAY_SECRET: ${GATEWAY_SECRET:?run bin/setup first}
       GATEWAY_OWNER_PASSWORD: ${GATEWAY_OWNER_PASSWORD:-}
@@ -61,6 +64,8 @@ services:
     user: "${CONTAINER_USER:-10001:10001}"
     cap_drop: ["ALL"]
     security_opt: ["no-new-privileges:true"]
+    mem_limit: 2g
+    pids_limit: 512
     working_dir: ${EDITORIAL_ROOT}
     environment:
       HOME: /tmp/scribus-home
@@ -83,6 +88,9 @@ services:
     tmpfs: ["/tmp"]
     cap_drop: ["ALL"]
     security_opt: ["no-new-privileges:true"]
+    # Decoding one image at the 80 Mpx cap needs a few hundred MB; nothing more.
+    mem_limit: 1g
+    pids_limit: 128
     environment:
       EDITORIAL_ROOT: ${EDITORIAL_ROOT}
       ASSETS_SECRET: ${ASSETS_SECRET:?run bin/setup first}
@@ -100,22 +108,30 @@ services:
       - "8766"
 
   ngrok:
-    image: ${NGROK_IMAGE:-docker.io/ngrok/ngrok:latest}
+    # Major tag rather than :latest, so a rebuild cannot silently pull a different agent.
+    image: ${NGROK_IMAGE:-docker.io/ngrok/ngrok:3}
     restart: unless-stopped
     depends_on:
       - gateway
     cap_drop: ["ALL"]
     security_opt: ["no-new-privileges:true"]
+    tmpfs: ["/tmp"]
+    mem_limit: 256m
+    pids_limit: 64
     environment:
       NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:?set NGROK_AUTHTOKEN in .env (bin/setup imports it from ngrok config)}
       NGROK_DOMAIN: ${NGROK_DOMAIN:-}
       NGROK_UPSTREAM: http://gateway:8080
       NGROK_WEB_ADDR: 0.0.0.0:4040
     entrypoint: ["/bin/sh", "-c"]
+    # --inspect=false: the agent's traffic inspector would otherwise keep every request,
+    # bearer tokens and the consent password included, readable on the web_addr API with
+    # no authentication. The API itself stays up (bin/lib.sh reads /api/tunnels).
     command:
       - >-
         printf 'version: "2"\nweb_addr: %s\n' "$$NGROK_WEB_ADDR" > /tmp/ngrok.yml &&
-        exec ngrok http "$$NGROK_UPSTREAM" --config /tmp/ngrok.yml --log stdout --log-format logfmt
+        exec ngrok http "$$NGROK_UPSTREAM" --config /tmp/ngrok.yml --inspect=false
+        --log stdout --log-format logfmt
         $${NGROK_DOMAIN:+--url=https://$$NGROK_DOMAIN}
     ports:
       - "127.0.0.1:${NGROK_INSPECT_PORT:-4040}:4040"
