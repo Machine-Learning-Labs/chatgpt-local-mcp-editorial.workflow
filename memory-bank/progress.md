@@ -46,17 +46,19 @@
 - [x] All three images build from the hash-pinned sets (gateway, assets, scribus-mcp with `--require-hashes`).
 - [x] `make lock` produces `uv.lock`, both exports and the universal scribus-mcp pin set.
 
-## Not verified yet
+### Image flow from ChatGPT web (2026-10-14)
 
-- [ ] `make up` end to end after the audit fixes: ngrok with `--inspect=false` still publishes the URL on `/api/tunnels`, and the memory limits don't hurt (rootless Podman delegates `cpu memory pids` here).
-
-- [ ] Whether ChatGPT web hydrates `openai/fileParams` for our developer-mode connector (`import_image`).
-- [ ] The full `make up` with the assets container, and the second connector added in ChatGPT.
-
+- [x] `make up` after the audit fixes: gateway, assets and `ngrok/ngrok:3` with `--inspect=false` run with the memory limits, ChatGPT connects through the static domain.
+- [x] ChatGPT web **hydrates `openai/fileParams`** for the connector: `import_image` arrived with a `file_id` and a `download_url` on `oaisdmntprnortheu.blob.core.windows.net`. The single-use upload link also stored a real image (`EDITORIAL_ROOT/rock/...png`).
+- [x] The default `ASSETS_DOWNLOAD_HOSTS` now includes `oaisdmntpr*.blob.core.windows.net` (`*` = part of one label); `host_allowed` supports that wildcard with tests.
+- [x] **`import_image` end to end from ChatGPT web** after the host fix: the generated image was downloaded from `oaisdmntprnortheu.blob.core.windows.net` and stored as a 2.1 MB PNG with `c2pa=True` under `EDITORIAL_ROOT/rock/` (owner confirmed, 2026-10-14).
 - [x] The full `make up` in host mode with ngrok, and ChatGPT connecting (owner confirmed on 2026-10-12, tagged v0.2.0).
 - [x] The interactive bridge with `python3-pyqt5` installed (owner confirmed).
-- [ ] The image flow from ChatGPT. **The manual inbox flow does not work for the owner**, so an assets service is needed (see activeContext).
+
+## Not verified yet
+
 - [ ] Docker Engine (only Podman is available here). CI covers compose config and image builds.
+- [ ] `import_image` with an image **uploaded** by the user (only generated images were tried); the code path is the same.
 
 ## Known issues
 

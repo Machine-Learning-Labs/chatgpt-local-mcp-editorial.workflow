@@ -17,6 +17,10 @@ Findings of the 2026-10-13 audit, all fixed:
 - **Hardening.** Containers have `mem_limit` and `pids_limit`. `/editor/mcp/...` and `/assets/mcp/...` sub-paths are no longer proxied (Streamable HTTP is a single endpoint). A malformed `code_verifier` answers `invalid_grant` instead of a 500. The 502 error no longer names the internal upstream address. `bin/setup` and `bin/check` refuse `EDITORIAL_ROOT` set to `/`, `$HOME` or a parent of `$HOME`. The consent page warns that anyone can register a client under any name.
 - **Documented.** The single-user assumption (scribus-mcp and the assets server trust every local process), with a `bin/check` warning when other login accounts exist and an nftables example; that a used refresh token stays valid until it expires; that upload links appear in access logs.
 
+### Fixed
+
+- `import_image` accepts the file URLs ChatGPT web actually hands over, on OpenAI's Azure storage accounts (`oaisdmntpr<region>.blob.core.windows.net`). `ASSETS_DOWNLOAD_HOSTS` entries may use `*` for part of one label; the default list includes `oaisdmntpr*.blob.core.windows.net`. The image flow from ChatGPT web is verified end to end.
+
 ### Changed
 
 - **Breaking:** the Scribus connector moved from `/mcp` to **`/editor/mcp`**, alongside `/assets/mcp`. The resource paths are constants in `config.py`. Update the ChatGPT connector URL; `/mcp` now answers 404.
