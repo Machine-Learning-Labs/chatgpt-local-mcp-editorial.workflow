@@ -1,0 +1,27 @@
+# Keeps the pinned sets fresh: uv.lock, the scribus-mcp runtime pins, the base images,
+# and the SHA-pinned actions. Each update still goes through CI (tests + pip-audit).
+version: 2
+updates:
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/containers/scribus-mcp"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "docker"
+    directories:
+      - "/containers/gateway"
+      - "/containers/assets"
+      - "/containers/scribus-mcp"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "docker-compose"
+    directory: "/"
+    schedule:
+      interval: "weekly"

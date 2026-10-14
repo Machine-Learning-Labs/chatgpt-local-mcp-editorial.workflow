@@ -48,19 +48,23 @@ GUI_VARS=(DISPLAY WAYLAND_DISPLAY XAUTHORITY XDG_RUNTIME_DIR XDG_SESSION_TYPE DB
 
 have systemctl || die "systemd is required for host mode"
 
+REQUIREMENTS="$ROOT/containers/scribus-mcp/requirements.txt"
+
 ensure_runtime() {
   if [[ -x "$VENV/bin/scribus-mcp" ]]; then return; fi
   local uv
   uv="$(find_uv)" || die "uv is needed once to build the runtime: curl -LsSf https://astral.sh/uv/install.sh | sh (or set UV=/path/to/uv in .env)"
+  # The runtime runs on this machine as you: only the reviewed, hash-pinned set is installed.
+  grep -qE "^scribus-mcp==${VERSION}( |$)" "$REQUIREMENTS" \
+    || die "SCRIBUS_MCP_VERSION=$VERSION is not what $REQUIREMENTS pins: run 'make lock' and retry"
   info "building runtime $VENV with $uv (uv-managed Python, isolated from conda/system)"
   mkdir -p "$DATA_DIR"
   # env -u: make sure an active conda/venv cannot leak into the build.
   env -u VIRTUAL_ENV -u CONDA_PREFIX -u PYTHONPATH -u PYTHONHOME \
     "$uv" venv --quiet --no-config --python 3.12 --python-preference only-managed "$VENV"
-  # scribus-mcp 1.3.x imports mcp.server.fastmcp, removed in mcp 2.x.
   env -u VIRTUAL_ENV -u CONDA_PREFIX -u PYTHONPATH -u PYTHONHOME \
     "$uv" pip install --quiet --no-config --python "$VENV/bin/python" \
-    "scribus-mcp==${VERSION}" "mcp>=1.10,<2"
+    --require-hashes -r "$REQUIREMENTS"
   ok "runtime ready: $("$VENV/bin/scribus-mcp" --help >/dev/null && echo "scribus-mcp $VERSION")"
 }
 

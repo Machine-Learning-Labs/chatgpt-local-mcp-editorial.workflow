@@ -5,7 +5,7 @@ s ?=
 
 .PHONY: help up start down down-all restart setup dev check check-live token url logs ps build \
         scribus service-start service-stop service-install service-enable service-uninstall \
-        service-status service-logs rotate test lint fmt clean
+        service-status service-logs rotate test lint fmt lock clean
 
 help: ## Show this help
 	@awk 'BEGIN{FS=":.*## "} /^[a-z-]+:.*## /{printf "  \033[36m%-17s\033[0m %s\n",$$1,$$2}' $(MAKEFILE_LIST)
@@ -86,6 +86,9 @@ lint: ## Ruff lint only
 
 fmt: ## Format Python code
 	@.venv/bin/ruff format src tests && .venv/bin/ruff check --fix src tests
+
+lock: ## Pin dependencies with hashes (uv.lock + containers/*/requirements.txt); run after changing pyproject or SCRIBUS_MCP_VERSION
+	@bin/lock
 
 clean: ## Remove local caches (keeps .env and your editorial folder)
 	@rm -rf .venv .pytest_cache .ruff_cache .coverage build dist src/*.egg-info

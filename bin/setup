@@ -64,9 +64,11 @@ ok "editorial folder: $root_dir (images from ChatGPT land in $root_dir/$(env_get
 
 if (( DEV )); then
   if uv="$(find_uv)"; then
-    "$uv" venv -q --allow-existing "$ROOT/.venv"
-    "$uv" pip install -q --python "$ROOT/.venv/bin/python" -e "${ROOT}[dev]"
+    # The locked versions (uv.lock, see bin/lock); env -u keeps conda/venv out of it.
+    (cd "$ROOT" && env -u VIRTUAL_ENV -u CONDA_PREFIX -u PYTHONPATH -u PYTHONHOME \
+      "$uv" sync --quiet --extra dev)
   else
+    warn "uv not found: installing unpinned versions with pip (uv.lock is ignored)"
     python3 -m venv "$ROOT/.venv"
     "$ROOT/.venv/bin/pip" install -q -e "${ROOT}[dev]"
   fi
