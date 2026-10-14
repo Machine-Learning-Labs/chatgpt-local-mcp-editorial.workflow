@@ -37,7 +37,18 @@
   - **the owner's real `amplificador.png` was stored byte-identical, with C2PA preserved**, mode 0640.
 - [x] `bin/compose config` works for both modes with the assets service.
 
+### Security audit fixes (2026-10-14)
+
+- [x] 177 tests pass at 93 % coverage (new: uvicorn call pinned, XFF spoof vs allowlist and rate limiter, issuer vs forwarded headers, chunked bodies on every capped route, sub-paths 404, malformed verifier, header-only pixel cap, assets `build_asgi` limit, consent warning). ruff, ruff format and shellcheck are clean.
+- [x] Real binary on a throwaway port: spoofed `X-Forwarded-For` behind a loopback proxy gets 403; issuer is `https://<Host>` with `X-Forwarded-Host` ignored; a chunked 5 MB body gets 413 at a 100 KB cap, and a chunked 100 KB form gets 413 on `/token`.
+- [x] `bin/host-service start` with a throwaway unit name and data dir builds the venv with `--require-hashes` (scribus-mcp 1.3.1, mcp 1.30.0) and `uninstall` leaves nothing.
+- [x] `bin/compose config -q` renders in both modes with `mem_limit`, `pids_limit`, `tmpfs` and `--inspect=false`; `bin/check` passes with the new single-user and dedicated-folder checks.
+- [x] All three images build from the hash-pinned sets (gateway, assets, scribus-mcp with `--require-hashes`).
+- [x] `make lock` produces `uv.lock`, both exports and the universal scribus-mcp pin set.
+
 ## Not verified yet
+
+- [ ] `make up` end to end after the audit fixes: ngrok with `--inspect=false` still publishes the URL on `/api/tunnels`, and the memory limits don't hurt (rootless Podman delegates `cpu memory pids` here).
 
 - [ ] Whether ChatGPT web hydrates `openai/fileParams` for our developer-mode connector (`import_image`).
 - [ ] The full `make up` with the assets container, and the second connector added in ChatGPT.

@@ -15,7 +15,7 @@ A third container, **assets** (`src/editorial_assets`), is a second protected re
 
 The gateway (`src/mcp_oauth_gateway`) does three jobs:
 
-1. **OAuth 2.1 authorization server.** It implements RFC 8414 metadata, RFC 7591 DCR, PKCE S256, RFC 9207 `iss` and refresh rotation.
+1. **OAuth 2.1 authorization server.** It implements RFC 8414 metadata, RFC 7591 DCR, PKCE S256, RFC 9207 `iss` and refresh tokens (re-issued on use; stateless, so the previous one lives until it expires).
 2. **Resource server.** On every `/editor/mcp` and `/assets/mcp` request it checks the bearer token (signature, `typ`, expiry, audience, scope) and the client IP allowlist.
 3. **Policy enforcement point.** It reads the JSON-RPC traffic (`policy.py`, `proxy.py`), refuses denied tools and paths outside `EDITORIAL_ROOT`, and rewrites `tools/list` and `initialize`.
 
@@ -26,7 +26,7 @@ The gateway (`src/mcp_oauth_gateway`) does three jobs:
 3. The client calls `POST /register` (DCR). Its redirect URIs must match `GATEWAY_ALLOWED_REDIRECTS`. The `client_id` it receives is a signed token, so the gateway stores nothing.
 4. The browser opens `GET /authorize` with PKCE S256 and an optional `resource`, which must be one of this gateway's resources (`/editor/mcp` or `/assets/mcp`). The owner approves on the consent page with `GATEWAY_OWNER_PASSWORD`.
 5. The gateway redirects with `code`, `state` and `iss` (RFC 9207). Errors are redirected with `iss` too.
-6. The client calls `POST /token` with the code and verifier. It gets an access token with `aud` set to the resource (1 h) and a refresh token (30 d, rotated on use).
+6. The client calls `POST /token` with the code and verifier (checked against RFC 7636 before use). It gets an access token with `aud` set to the resource (1 h) and a refresh token (30 d, re-issued on use).
 7. The client calls `/editor/mcp` with the bearer token, and the proxy streams the traffic to scribus-mcp. The `Authorization`, `Cookie` and `Origin` headers are removed, and `Host` is set to localhost for FastMCP.
 
 ## Policy on the JSON-RPC stream
@@ -50,7 +50,10 @@ The path jail needs the gateway to see the real filesystem so it can resolve sym
 | Host mode puts the gateway and ngrok on the host network | The bridge only listens on host loopback. This is the only way to keep **everything** on 127.0.0.1 without exposing scribus-mcp to the LAN. |
 | scribus-mcp runs in a dedicated uv venv under systemd `--user`, transient by default | Isolated from conda and the system Python. `make down` leaves nothing behind. Hardened with systemd properties. |
 | Stateless HS256 tokens | No database. `make rotate` is the kill switch. |
-| The issuer comes from proxy headers | Random ngrok URLs work without configuration. `PUBLIC_URL` pins the issuer when needed. |
+| The issuer is the `Host` header plus the scheme from a trusted proxy | Random ngrok URLs work without configuration, and nothing a client sends (`X-Forwarded-Host`, a first `X-Forwarded-Proto` hop) can change it. `PUBLIC_URL` pins the issuer when needed. |
+| uvicorn runs with `proxy_headers=False` | uvicorn's rewriting takes the *first* `X-Forwarded-For` hop, which the client controls. `network.py` takes the *last* hop, and only from `GATEWAY_TRUSTED_PROXIES`, for the IP allowlist, the rate limiter and the audit log. |
+| Body caps per route (`max_body_size`) | Starlette cuts a body off while it streams in, so a chunked request without `Content-Length` is bounded too. Streamable HTTP has one endpoint per resource, so no sub-paths are routed upstream. |
+| Dependencies pinned with hashes (`make lock`) | What runs on the host (scribus-mcp) and in the images is exactly the reviewed set. CI audits it with `pip-audit`; Dependabot proposes updates. |
 
 ## Multiple protected resources
 
@@ -59,6 +62,6 @@ Each resource has its own protected resource metadata (`/.well-known/oauth-prote
 ## Known limits
 
 - Single replica. The used-code set and the rate limiter live in memory.
-- Tokens can't be revoked one at a time.
+- Tokens can't be revoked one at a time, and a used refresh token stays valid until it expires.
 - Container mode can't drive the desktop Scribus (see [scribus-mcp.md](scribus-mcp.md)).
-- Images from ChatGPT reach Scribus through `EDITORIAL_ROOT/inbox` by hand for now ([host-mode.md](host-mode.md)).
+- scribus-mcp and the assets server have no authentication of their own: the stack assumes a single-user machine ([security.md](security.md)).

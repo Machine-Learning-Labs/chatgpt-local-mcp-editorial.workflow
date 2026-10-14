@@ -1,8 +1,18 @@
 # Active context
 
-_Last updated: 2026-10-13_
+_Last updated: 2026-10-14_
 
-## Current focus (2026-10-13): images from ChatGPT
+## Current focus (2026-10-14): security audit fixes, then the image flow
+
+A full security audit of commit `0577412` was done on 2026-10-13 and every finding was fixed on 2026-10-14 (see `CHANGELOG.md`, "Security", and `docs/security.md`). The threat model is now explicit: **one user, one machine**; scribus-mcp and the assets server trust every local process, `bin/check` warns about other login accounts.
+
+What was fixed, in short: uvicorn no longer rewrites the client address (`proxy_headers=False`, the IP allowlist and the password rate limit were spoofable through `X-Forwarded-For`); the issuer ignores `X-Forwarded-Host`; ngrok runs with `--inspect=false`; per-route `max_body_size`; image pixel cap checked on the header; `starlette>=1.6`; hash-pinned dependencies (`make lock`, `uv.lock`, `containers/*/requirements.txt`, `--require-hashes` everywhere, `pip-audit` in CI, Dependabot, SHA-pinned actions, `ngrok/ngrok:3`); `mem_limit`/`pids_limit`; no sub-path proxying; `EDITORIAL_ROOT` must be a dedicated folder; consent page warning.
+
+Verified on the owner's machine: 177 tests at 93 %, ruff and shellcheck clean, `bin/check` and `bin/compose config` in both modes, the real binary refuses the spoof (403) and caps chunked bodies (413), the hash-pinned runtime builds and uninstalls cleanly, and the gateway and assets images build. **Not yet verified live:** `make up` with `--inspect=false` and the memory limits (the owner runs it next), and the scribus-mcp image rebuild. The changes are in the working tree, not committed.
+
+Before any public push: decide whether `memory-bank/` stays in the repository (it describes the owner's machine; it is already in the history), and read `docs/security.md` once more.
+
+## Previous focus (2026-10-13): images from ChatGPT
 
 v0.2.0 is tagged, and the owner confirmed host mode works end to end.
 
@@ -69,3 +79,5 @@ The goal is that the owner generates images in ChatGPT, and pages are created in
 
 - Is CIMD worth supporting? ChatGPT prefers it. It would require fetching `https://chatgpt.com/oauth/...client.json`, with SSRF guards.
 - Should the gateway force `mode="interactive"` in host mode, to avoid silent headless fallbacks?
+- Should the ngrok container be `read_only` (it only writes `/tmp/ngrok.yml`, now on tmpfs)? Not tried, to avoid breaking `make up` untested.
+- Should `REFRESH_TOKEN_TTL` default to less than 30 days, given that a used refresh token stays valid?

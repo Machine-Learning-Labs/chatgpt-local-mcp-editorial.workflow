@@ -4,9 +4,24 @@ This file follows [Keep a Changelog](https://keepachangelog.com/) and [SemVer](h
 
 ## [Unreleased]
 
+### Security
+
+Findings of the 2026-10-13 audit, all fixed:
+
+- **Client IP spoofing.** uvicorn ran with `proxy_headers=True` and `forwarded_allow_ips="*"`, which hands the application the *first* `X-Forwarded-For` hop, the one the client writes (ngrok appends its own at the end). `GATEWAY_ALLOWED_CLIENT_CIDRS` could be bypassed with a forged header, and the consent-password rate limiter could be reset on every attempt. uvicorn now runs with `proxy_headers=False`; `network.py` takes the last hop, only from `GATEWAY_TRUSTED_PROXIES`, for the allowlist, the rate limiter and the audit log.
+- **Issuer derivation.** `X-Forwarded-Host` is no longer used (ngrok passes a client-supplied one through); the issuer is `PUBLIC_URL` or the `Host` header, with the scheme from the last `X-Forwarded-Proto` hop of a trusted proxy.
+- **ngrok inspector.** The agent now runs with `--inspect=false`. Its inspector kept every request, bearer tokens and the consent password included, on an unauthenticated local API.
+- **Body caps for chunked requests.** Every body-carrying route has a Starlette `max_body_size`, so a request without `Content-Length` is cut off at the cap instead of being read whole. The consent POST is capped too (64 KB). The assets server applies its own limit.
+- **Decompression bombs.** The pixel cap is checked on the image header before anything is decoded (Pillow alone only fails at twice the cap).
+- **Dependencies.** `starlette>=1.6` (per-route body limits; the urlencoded form limits of CVE-2026-54283 were fixed in 1.3.1, and `max_part_size` only exists from 0.45). Every dependency is pinned with hashes: `uv.lock` plus `containers/*/requirements.txt`, regenerated with `make lock`; the images and the host runtime install with `--require-hashes`; CI runs `pip-audit`; Dependabot is configured; GitHub Actions are pinned by commit; the ngrok image is `ngrok/ngrok:3` instead of `:latest`.
+- **Hardening.** Containers have `mem_limit` and `pids_limit`. `/editor/mcp/...` and `/assets/mcp/...` sub-paths are no longer proxied (Streamable HTTP is a single endpoint). A malformed `code_verifier` answers `invalid_grant` instead of a 500. The 502 error no longer names the internal upstream address. `bin/setup` and `bin/check` refuse `EDITORIAL_ROOT` set to `/`, `$HOME` or a parent of `$HOME`. The consent page warns that anyone can register a client under any name.
+- **Documented.** The single-user assumption (scribus-mcp and the assets server trust every local process), with a `bin/check` warning when other login accounts exist and an nftables example; that a used refresh token stays valid until it expires; that upload links appear in access logs.
+
 ### Changed
 
 - **Breaking:** the Scribus connector moved from `/mcp` to **`/editor/mcp`**, alongside `/assets/mcp`. The resource paths are constants in `config.py`. Update the ChatGPT connector URL; `/mcp` now answers 404.
+- `bin/setup --dev` uses `uv sync` (the locked set) when uv is available.
+- Personal paths in the docs are now written as `~/Editorial`.
 
 ### Added
 

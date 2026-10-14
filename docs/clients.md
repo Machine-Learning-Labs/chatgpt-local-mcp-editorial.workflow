@@ -52,4 +52,4 @@ claude mcp add --transport http scribus https://<domain>/editor/mcp \
 
 ## Paths in prompts
 
-Always use absolute paths under `EDITORIAL_ROOT`, for example *"save as /home/manuel/Editorial/flyer.sla"* or *"load /home/manuel/Editorial/inbox/cover.png"*. The MCP's `initialize` instructions tell the model the same thing. The gateway refuses anything outside that folder.
+Always use absolute paths under `EDITORIAL_ROOT`, for example *"save as ~/Editorial/flyer.sla"* or *"load ~/Editorial/libro/assets/cover.png"* with `~` spelled out as your home directory. The MCP's `initialize` instructions tell the model the same thing. The gateway refuses anything outside that folder.

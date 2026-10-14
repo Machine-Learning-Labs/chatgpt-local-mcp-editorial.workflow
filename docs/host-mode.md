@@ -54,18 +54,19 @@ sudo apt install python3-pyqt5      # once; remove with: sudo apt remove python3
 
 ## The editorial folder
 
-`EDITORIAL_ROOT` (`/home/manuel/Editorial`) is the only place the MCP can read or write.
+`EDITORIAL_ROOT` (`~/Editorial` by default) is the only place the MCP can read or write.
 
-- Every path argument (`path`, `image_path`, `font_path`, `target_dir`, …) is resolved, symlinks included, and must land inside it. Otherwise the call is refused before it reaches Scribus.
+- Every path argument (`path`, `image_path`, `font_path`, `target_dir`, …) is resolved, symlinks included, and must land inside it. Otherwise the call is refused before it reaches Scribus. Those four names are the only path arguments in scribus-mcp 1.3.1; the `PATH_ARG` pattern in `policy.py` covers them and the usual spellings other MCPs use.
 - Relative paths are resolved against the root and forwarded as absolute paths.
-- `bin/setup` creates the folder with mode 700, plus an `inbox/` subfolder for images.
+- `bin/setup` creates the folder with mode 700, plus `inbox/` and `libro/assets/`. It refuses `/`, `$HOME` or a parent of `$HOME` as the root.
 
-### Images (manual flow)
+### Images
 
-1. Generate the image in ChatGPT and download it to `~/Editorial/inbox/`.
-2. Ask ChatGPT, for example: *"create an image frame on page 1 and load /home/manuel/Editorial/inbox/cover.png, scaled to the frame"*. ChatGPT then calls `create_image_frame`, `load_image` and `scale_image_to_frame`.
+Images generated in ChatGPT reach `EDITORIAL_ROOT/libro/assets/` through the **Editorial Assets** connector, see [assets-connector.md](assets-connector.md). The manual alternative still works: drop a file into `~/Editorial/inbox/` and ask, for example, *"create an image frame on page 1 and load ~/Editorial/inbox/cover.png, scaled to the frame"* (with `~` spelled out). ChatGPT then calls `create_image_frame`, `load_image` and `scale_image_to_frame`.
 
-If this manual step turns out to be too much friction, the plan is an assets tool that writes the files ChatGPT sends (`openai/fileParams`) into `inbox/`, behind the same gateway and ngrok. See `memory-bank/activeContext.md`.
+### Who else can reach the service
+
+scribus-mcp and the assets server trust every local process: they listen on 127.0.0.1 without authentication of their own. That is fine for your own account on your own machine. `bin/check` warns when other login accounts exist; [security.md](security.md) explains the options for a shared machine.
 
 ## Troubleshooting
 

@@ -57,7 +57,8 @@ Then connect ChatGPT with **two connectors**, Scribus editor (`…/editor/mcp`) 
 | `make service-status` / `service-logs` | Unit, runtime, endpoint and bridge state / journald logs |
 | `make logs s=gateway` | Gateway logs, including the **audit log** of every tool call |
 | `make rotate` | Revoke every token and client |
-| `make test` | ruff, pytest (165 tests) and shellcheck |
+| `make lock` | Re-pin every dependency with hashes after changing `pyproject.toml` or `SCRIBUS_MCP_VERSION` |
+| `make test` | ruff, pytest (177 tests) and shellcheck |
 
 Every command is a script in `bin/` that works with Docker or Podman. `bin/compose` picks the engine and the compose files for the mode.
 
@@ -70,10 +71,15 @@ Read [docs/security.md](docs/security.md) for the threat model and the controls.
 - Audience-bound tokens.
 - Path jail in `~/Editorial`.
 - Code-execution tools hidden.
-- Loopback-only listeners.
-- Hardened containers and systemd unit.
+- Loopback-only listeners, and an ngrok agent that keeps no copy of the traffic.
+- Hardened containers and systemd unit, with memory and process limits.
+- Body caps that hold for chunked requests too.
+- Client addresses taken only from the trusted proxy, never from headers a client can forge.
+- Every dependency pinned with hashes, audited in CI.
 - An audit log.
 - An optional OpenAI IP allowlist.
+
+It assumes **your own machine, one user**: scribus-mcp and the assets server trust every local process. See [SECURITY.md](SECURITY.md).
 
 ## Development
 
