@@ -1,9 +1,10 @@
 # Connecting clients
 
-There are two connectors on the same domain. Run `make url` to print both:
+There are two connectors on the same domain, plus an optional third. Run `make url` to print them:
 
 - **Scribus editor:** `https://<NGROK_DOMAIN>/editor/mcp`
 - **Editorial Assets:** `https://<NGROK_DOMAIN>/assets/mcp`
+- **DesignCraft** (with `DESIGNCRAFT_ENABLED=true`): `https://<NGROK_DOMAIN>/designcraft/mcp`
 
 ## ChatGPT (plugin / custom MCP server)
 
@@ -30,6 +31,15 @@ Add a second custom MCP server with the same settings, changing:
 - **Server URL:** `https://<domain>/assets/mcp`
 
 It has its own OAuth flow and its own token. Usage and the prompt recipe are in [assets-connector.md](assets-connector.md).
+
+## ChatGPT: third connector for DesignCraft
+
+With `DESIGNCRAFT_ENABLED=true` (host mode), add a third custom MCP server with the same settings, changing:
+
+- **Name:** DesignCraft
+- **Server URL:** `https://<domain>/designcraft/mcp`
+
+It has its own OAuth flow and its own token, and only the reviewed tools show up. Details in [designcraft.md](designcraft.md). `bin/token --designcraft` mints a static token for it.
 
 ## Other OAuth clients
 

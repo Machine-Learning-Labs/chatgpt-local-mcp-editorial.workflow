@@ -4,6 +4,26 @@ This file follows [Keep a Changelog](https://keepachangelog.com/) and [SemVer](h
 
 ## [Unreleased]
 
+### Added
+
+- **DesignCraft connector** (optional, host mode, `DESIGNCRAFT_ENABLED=true`): a third protected resource at `/designcraft/mcp` for [DesignCraft](https://getartcraft.com/apps/designcraft)'s own MCP server. Details in [docs/designcraft.md](docs/designcraft.md).
+  - `designcraft-cli mcp` runs headless and is confined to `EDITORIAL_ROOT` by DesignCraft itself (`--automation-read-root/--automation-write-root`).
+  - [mcp-proxy](https://github.com/sparfenyuk/mcp-proxy) bridges its stdio to Streamable HTTP, as a systemd user unit on loopback (`bin/designcraft-service`).
+  - `DesignCraftPolicy` fails closed:
+    - tool and command allow-lists (`key` is hidden: it runs command shortcuts such as Cmd+P → print);
+    - a deny list for printing, the system clipboard and `script.run`;
+    - strict `execute`/`batch` shapes, with no batch `script` text;
+    - literal path arguments;
+    - no JSON-RPC batches, and only `designcraft://` resources.
+  - The CLI runs with a private `HOME` and no display.
+  - The service refuses any DesignCraft version other than `DESIGNCRAFT_VERSION`. `bin/designcraft-audit` diffs an upgrade against the reviewed snapshot.
+- `bin/lock --upgrade-package X` (and `--upgrade`) to move pins with the supported command.
+
+### Changed
+
+- `bin/host-service uninstall` removes only scribus-mcp's runtimes, not the whole data folder.
+- Dependencies: pillow 13.0.0 and certifi 2026.10.23 (security fixes: PYSEC-2026-4320 and 4326–4343, plus four CVEs), starlette 1.10.0, python-multipart 0.0.34, Python 3.15 base images, setup-uv 10.3.3.
+
 ### Security
 
 Findings of the 2026-10-13 audit, all fixed:
