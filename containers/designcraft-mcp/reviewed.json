@@ -1,0 +1,2329 @@
+{
+ "commands": {
+  "anchor.create": {
+   "paths": [],
+   "risk": []
+  },
+  "anchor.list": {
+   "paths": [],
+   "risk": []
+  },
+  "anchored.insert": {
+   "paths": [],
+   "risk": []
+  },
+  "anchored.list": {
+   "paths": [],
+   "risk": []
+  },
+  "anchored.options": {
+   "paths": [],
+   "risk": []
+  },
+  "anchored.release": {
+   "paths": [],
+   "risk": []
+  },
+  "app.links": {
+   "paths": [],
+   "risk": []
+  },
+  "article.add": {
+   "paths": [],
+   "risk": []
+  },
+  "article.delete": {
+   "paths": [],
+   "risk": []
+  },
+  "article.list": {
+   "paths": [],
+   "risk": []
+  },
+  "article.new": {
+   "paths": [],
+   "risk": []
+  },
+  "article.options": {
+   "paths": [],
+   "risk": []
+  },
+  "article.remove": {
+   "paths": [],
+   "risk": []
+  },
+  "book.add": {
+   "paths": [],
+   "risk": []
+  },
+  "book.close": {
+   "paths": [],
+   "risk": []
+  },
+  "book.exportPdf": {
+   "paths": [
+    "path"
+   ],
+   "risk": []
+  },
+  "book.list": {
+   "paths": [],
+   "risk": []
+  },
+  "book.new": {
+   "paths": [],
+   "risk": []
+  },
+  "book.open": {
+   "paths": [],
+   "risk": []
+  },
+  "book.paginate": {
+   "paths": [],
+   "risk": []
+  },
+  "book.remove": {
+   "paths": [],
+   "risk": []
+  },
+  "book.styleSource": {
+   "paths": [],
+   "risk": []
+  },
+  "book.syncStyles": {
+   "paths": [],
+   "risk": []
+  },
+  "bookmark.add": {
+   "paths": [],
+   "risk": []
+  },
+  "bookmark.delete": {
+   "paths": [],
+   "risk": []
+  },
+  "bookmark.list": {
+   "paths": [],
+   "risk": []
+  },
+  "bookmark.rename": {
+   "paths": [],
+   "risk": []
+  },
+  "button.clear": {
+   "paths": [],
+   "risk": []
+  },
+  "button.list": {
+   "paths": [],
+   "risk": []
+  },
+  "button.set": {
+   "paths": [],
+   "risk": [
+    "url"
+   ]
+  },
+  "changes.accept": {
+   "paths": [],
+   "risk": []
+  },
+  "changes.acceptAll": {
+   "paths": [],
+   "risk": []
+  },
+  "changes.list": {
+   "paths": [],
+   "risk": []
+  },
+  "changes.reject": {
+   "paths": [],
+   "risk": []
+  },
+  "changes.rejectAll": {
+   "paths": [],
+   "risk": []
+  },
+  "changes.track": {
+   "paths": [],
+   "risk": []
+  },
+  "color.convert": {
+   "paths": [],
+   "risk": []
+  },
+  "color.extractTheme": {
+   "paths": [],
+   "risk": []
+  },
+  "color.loadProfile": {
+   "paths": [],
+   "risk": []
+  },
+  "color.sample": {
+   "paths": [],
+   "risk": []
+  },
+  "color.settings": {
+   "paths": [],
+   "risk": []
+  },
+  "condition.apply": {
+   "paths": [],
+   "risk": []
+  },
+  "condition.delete": {
+   "paths": [],
+   "risk": []
+  },
+  "condition.list": {
+   "paths": [],
+   "risk": []
+  },
+  "condition.new": {
+   "paths": [],
+   "risk": []
+  },
+  "condition.options": {
+   "paths": [],
+   "risk": []
+  },
+  "conveyor.clear": {
+   "paths": [],
+   "risk": []
+  },
+  "conveyor.collect": {
+   "paths": [],
+   "risk": []
+  },
+  "conveyor.list": {
+   "paths": [],
+   "risk": []
+  },
+  "conveyor.place": {
+   "paths": [],
+   "risk": []
+  },
+  "data.fields": {
+   "paths": [],
+   "risk": []
+  },
+  "data.merge": {
+   "paths": [],
+   "risk": []
+  },
+  "data.options": {
+   "paths": [],
+   "risk": []
+  },
+  "data.placeholder.add": {
+   "paths": [],
+   "risk": []
+  },
+  "data.placeholder.remove": {
+   "paths": [],
+   "risk": []
+  },
+  "data.preview": {
+   "paths": [],
+   "risk": []
+  },
+  "data.preview.stop": {
+   "paths": [],
+   "risk": []
+  },
+  "data.source.remove": {
+   "paths": [],
+   "risk": []
+  },
+  "data.source.select": {
+   "paths": [],
+   "risk": []
+  },
+  "data.source.update": {
+   "paths": [],
+   "risk": []
+  },
+  "document.epubSplit": {
+   "paths": [],
+   "risk": []
+  },
+  "document.history": {
+   "paths": [],
+   "risk": []
+  },
+  "document.inspect": {
+   "paths": [],
+   "risk": []
+  },
+  "document.list": {
+   "paths": [],
+   "risk": []
+  },
+  "document.preferences": {
+   "paths": [],
+   "risk": []
+  },
+  "edit.cancelPreview": {
+   "paths": [],
+   "risk": []
+  },
+  "edit.clear": {
+   "paths": [],
+   "risk": []
+  },
+  "edit.commitPreview": {
+   "paths": [],
+   "risk": []
+  },
+  "edit.copy": {
+   "paths": [],
+   "risk": []
+  },
+  "edit.cut": {
+   "paths": [],
+   "risk": []
+  },
+  "edit.deselectAll": {
+   "paths": [],
+   "risk": []
+  },
+  "edit.duplicate": {
+   "paths": [],
+   "risk": []
+  },
+  "edit.paste": {
+   "paths": [],
+   "risk": [
+    "clipboard"
+   ]
+  },
+  "edit.pasteInPlace": {
+   "paths": [],
+   "risk": []
+  },
+  "edit.pasteInto": {
+   "paths": [],
+   "risk": []
+  },
+  "edit.pasteSvg": {
+   "paths": [],
+   "risk": [
+    "clipboard"
+   ]
+  },
+  "edit.pasteWithoutFormatting": {
+   "paths": [],
+   "risk": []
+  },
+  "edit.preview": {
+   "paths": [],
+   "risk": []
+  },
+  "edit.redo": {
+   "paths": [],
+   "risk": []
+  },
+  "edit.selectAll": {
+   "paths": [],
+   "risk": []
+  },
+  "edit.stepAndRepeat": {
+   "paths": [],
+   "risk": []
+  },
+  "edit.transparencyBlendSpace": {
+   "paths": [],
+   "risk": []
+  },
+  "edit.undo": {
+   "paths": [],
+   "risk": []
+  },
+  "endnote.delete": {
+   "paths": [],
+   "risk": []
+  },
+  "endnote.edit": {
+   "paths": [],
+   "risk": []
+  },
+  "endnote.insert": {
+   "paths": [],
+   "risk": []
+  },
+  "endnote.list": {
+   "paths": [],
+   "risk": []
+  },
+  "endnote.options": {
+   "paths": [],
+   "risk": []
+  },
+  "file.activate": {
+   "paths": [],
+   "risk": []
+  },
+  "file.clearRecent": {
+   "paths": [],
+   "risk": []
+  },
+  "file.close": {
+   "paths": [],
+   "risk": []
+  },
+  "file.deleteExportPreset": {
+   "paths": [],
+   "risk": []
+  },
+  "file.deletePreset": {
+   "paths": [],
+   "risk": []
+  },
+  "file.exportBatch": {
+   "paths": [
+    "dir"
+   ],
+   "risk": []
+  },
+  "file.exportEpub": {
+   "paths": [
+    "coverImage",
+    "path"
+   ],
+   "risk": []
+  },
+  "file.exportFixedEpub": {
+   "paths": [
+    "path"
+   ],
+   "risk": []
+  },
+  "file.exportHtml": {
+   "paths": [
+    "path"
+   ],
+   "risk": []
+  },
+  "file.exportIdml": {
+   "paths": [],
+   "risk": []
+  },
+  "file.exportPdf": {
+   "paths": [
+    "path"
+   ],
+   "risk": []
+  },
+  "file.exportPptx": {
+   "paths": [
+    "path"
+   ],
+   "risk": []
+  },
+  "file.exportPresets": {
+   "paths": [],
+   "risk": []
+  },
+  "file.exportText": {
+   "paths": [
+    "path"
+   ],
+   "risk": []
+  },
+  "file.exportXml": {
+   "paths": [
+    "path"
+   ],
+   "risk": []
+  },
+  "file.importXml": {
+   "paths": [],
+   "risk": []
+  },
+  "file.info": {
+   "paths": [],
+   "risk": []
+  },
+  "file.info.get": {
+   "paths": [],
+   "risk": []
+  },
+  "file.new": {
+   "paths": [],
+   "risk": [
+    "print"
+   ]
+  },
+  "file.newSample": {
+   "paths": [],
+   "risk": []
+  },
+  "file.open": {
+   "paths": [],
+   "risk": []
+  },
+  "file.openBytes": {
+   "paths": [],
+   "risk": []
+  },
+  "file.openIdml": {
+   "paths": [],
+   "risk": []
+  },
+  "file.openRecent": {
+   "paths": [],
+   "risk": []
+  },
+  "file.package": {
+   "paths": [
+    "dir"
+   ],
+   "risk": []
+  },
+  "file.place": {
+   "paths": [],
+   "risk": []
+  },
+  "file.presets": {
+   "paths": [],
+   "risk": []
+  },
+  "file.print": {
+   "paths": [],
+   "risk": [
+    "print",
+    "printer"
+   ]
+  },
+  "file.printBooklet": {
+   "paths": [
+    "path"
+   ],
+   "risk": [
+    "print",
+    "printer"
+   ]
+  },
+  "file.printers": {
+   "paths": [],
+   "risk": []
+  },
+  "file.recentFiles": {
+   "paths": [],
+   "risk": []
+  },
+  "file.recovery.list": {
+   "paths": [],
+   "risk": []
+  },
+  "file.recovery.open": {
+   "paths": [],
+   "risk": []
+  },
+  "file.recovery.save": {
+   "paths": [],
+   "risk": []
+  },
+  "file.revert": {
+   "paths": [],
+   "risk": []
+  },
+  "file.save": {
+   "paths": [
+    "path"
+   ],
+   "risk": []
+  },
+  "file.saveACopy": {
+   "paths": [
+    "path"
+   ],
+   "risk": []
+  },
+  "file.saveAs": {
+   "paths": [
+    "path"
+   ],
+   "risk": []
+  },
+  "file.saveExportPreset": {
+   "paths": [],
+   "risk": []
+  },
+  "file.savePreset": {
+   "paths": [],
+   "risk": []
+  },
+  "file.serialize": {
+   "paths": [],
+   "risk": []
+  },
+  "find.change": {
+   "paths": [],
+   "risk": []
+  },
+  "find.changeObjects": {
+   "paths": [],
+   "risk": []
+  },
+  "find.find": {
+   "paths": [],
+   "risk": []
+  },
+  "find.next": {
+   "paths": [],
+   "risk": []
+  },
+  "find.objects": {
+   "paths": [],
+   "risk": []
+  },
+  "flex.add": {
+   "paths": [],
+   "risk": []
+  },
+  "flex.convert": {
+   "paths": [],
+   "risk": []
+  },
+  "flex.remove": {
+   "paths": [],
+   "risk": []
+  },
+  "flex.reorder": {
+   "paths": [],
+   "risk": []
+  },
+  "flex.set": {
+   "paths": [],
+   "risk": []
+  },
+  "font.list": {
+   "paths": [],
+   "risk": []
+  },
+  "font.reload": {
+   "paths": [],
+   "risk": []
+  },
+  "font.replace": {
+   "paths": [],
+   "risk": []
+  },
+  "footnote.delete": {
+   "paths": [],
+   "risk": []
+  },
+  "footnote.goToReference": {
+   "paths": [],
+   "risk": []
+  },
+  "footnote.insert": {
+   "paths": [],
+   "risk": []
+  },
+  "footnote.list": {
+   "paths": [],
+   "risk": []
+  },
+  "footnote.options": {
+   "paths": [],
+   "risk": []
+  },
+  "footnote.setText": {
+   "paths": [],
+   "risk": []
+  },
+  "form.clear": {
+   "paths": [],
+   "risk": []
+  },
+  "form.list": {
+   "paths": [],
+   "risk": []
+  },
+  "form.set": {
+   "paths": [],
+   "risk": []
+  },
+  "frame.create": {
+   "paths": [],
+   "risk": []
+  },
+  "frame.grid": {
+   "paths": [],
+   "risk": []
+  },
+  "gap.move": {
+   "paths": [],
+   "risk": []
+  },
+  "guide.add": {
+   "paths": [],
+   "risk": []
+  },
+  "guide.delete": {
+   "paths": [],
+   "risk": []
+  },
+  "guide.deleteAll": {
+   "paths": [],
+   "risk": []
+  },
+  "guide.deselect": {
+   "paths": [],
+   "risk": []
+  },
+  "guide.liquid": {
+   "paths": [],
+   "risk": []
+  },
+  "guide.list": {
+   "paths": [],
+   "risk": []
+  },
+  "guide.move": {
+   "paths": [],
+   "risk": []
+  },
+  "guide.moveBy": {
+   "paths": [],
+   "risk": []
+  },
+  "guide.select": {
+   "paths": [],
+   "risk": []
+  },
+  "guide.selectAll": {
+   "paths": [],
+   "risk": []
+  },
+  "hyperlink.create": {
+   "paths": [],
+   "risk": [
+    "url"
+   ]
+  },
+  "hyperlink.delete": {
+   "paths": [],
+   "risk": []
+  },
+  "hyperlink.edit": {
+   "paths": [],
+   "risk": [
+    "url"
+   ]
+  },
+  "hyperlink.goToSource": {
+   "paths": [],
+   "risk": []
+  },
+  "hyperlink.list": {
+   "paths": [],
+   "risk": []
+  },
+  "hyphenation.addException": {
+   "paths": [],
+   "risk": []
+  },
+  "hyphenation.list": {
+   "paths": [],
+   "risk": []
+  },
+  "hyphenation.removeException": {
+   "paths": [],
+   "risk": []
+  },
+  "index.addReference": {
+   "paths": [],
+   "risk": []
+  },
+  "index.generate": {
+   "paths": [],
+   "risk": []
+  },
+  "index.list": {
+   "paths": [],
+   "risk": []
+  },
+  "index.update": {
+   "paths": [],
+   "risk": []
+  },
+  "ink.list": {
+   "paths": [],
+   "risk": [
+    "process"
+   ]
+  },
+  "ink.options": {
+   "paths": [],
+   "risk": [
+    "process"
+   ]
+  },
+  "ink.separations": {
+   "paths": [],
+   "risk": []
+  },
+  "layer.activate": {
+   "paths": [],
+   "risk": []
+  },
+  "layer.delete": {
+   "paths": [],
+   "risk": []
+  },
+  "layer.deleteUnused": {
+   "paths": [],
+   "risk": []
+  },
+  "layer.merge": {
+   "paths": [],
+   "risk": []
+  },
+  "layer.move": {
+   "paths": [],
+   "risk": []
+  },
+  "layer.new": {
+   "paths": [],
+   "risk": []
+  },
+  "layer.others": {
+   "paths": [],
+   "risk": []
+  },
+  "layer.selectItems": {
+   "paths": [],
+   "risk": []
+  },
+  "layer.set": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.alternate.delete": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.alternate.duplicate": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.alternate.options": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.chapterNumbering": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.createAlternate": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.createGuides": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.detachAll": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.documentSetup": {
+   "paths": [],
+   "risk": [
+    "print"
+   ]
+  },
+  "layout.marginsAndColumns": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.moveColumnGuide": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.numberingOptions": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.overrideParentItems": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.pageOptions": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.pageSize": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.pages.applyParent": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.pages.delete": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.pages.duplicateSpread": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.pages.insert": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.pages.move": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.pages.toSpread": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.parentPageSize": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.parents.delete": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.parents.duplicate": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.parents.edit": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.parents.new": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.parents.options": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.removeOverrides": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.rotateSpreadView": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.section": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.selectPage": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.selectParentPage": {
+   "paths": [],
+   "risk": []
+  },
+  "layout.spreadShuffle": {
+   "paths": [],
+   "risk": []
+  },
+  "library.add": {
+   "paths": [],
+   "risk": []
+  },
+  "library.close": {
+   "paths": [],
+   "risk": []
+  },
+  "library.json": {
+   "paths": [],
+   "risk": []
+  },
+  "library.list": {
+   "paths": [],
+   "risk": []
+  },
+  "library.new": {
+   "paths": [],
+   "risk": []
+  },
+  "library.open": {
+   "paths": [],
+   "risk": []
+  },
+  "library.place": {
+   "paths": [],
+   "risk": []
+  },
+  "library.remove": {
+   "paths": [],
+   "risk": []
+  },
+  "line.create": {
+   "paths": [],
+   "risk": []
+  },
+  "links.copyTo": {
+   "paths": [],
+   "risk": []
+  },
+  "links.embed": {
+   "paths": [
+    "file"
+   ],
+   "risk": []
+  },
+  "links.goTo": {
+   "paths": [],
+   "risk": []
+  },
+  "links.list": {
+   "paths": [],
+   "risk": []
+  },
+  "links.relink": {
+   "paths": [],
+   "risk": []
+  },
+  "links.relinkFolder": {
+   "paths": [
+    "dir"
+   ],
+   "risk": []
+  },
+  "links.update": {
+   "paths": [],
+   "risk": []
+  },
+  "liquid.object": {
+   "paths": [],
+   "risk": []
+  },
+  "liquid.pageRule": {
+   "paths": [],
+   "risk": []
+  },
+  "list.bullets": {
+   "paths": [],
+   "risk": []
+  },
+  "list.define": {
+   "paths": [],
+   "risk": []
+  },
+  "list.delete": {
+   "paths": [],
+   "risk": []
+  },
+  "list.numbers": {
+   "paths": [],
+   "risk": []
+  },
+  "math.insert": {
+   "paths": [],
+   "risk": []
+  },
+  "math.svg": {
+   "paths": [],
+   "risk": []
+  },
+  "media.get": {
+   "paths": [],
+   "risk": []
+  },
+  "media.options": {
+   "paths": [],
+   "risk": []
+  },
+  "note.convertFromText": {
+   "paths": [],
+   "risk": []
+  },
+  "note.convertToText": {
+   "paths": [],
+   "risk": []
+  },
+  "note.delete": {
+   "paths": [],
+   "risk": []
+  },
+  "note.edit": {
+   "paths": [],
+   "risk": []
+  },
+  "note.list": {
+   "paths": [],
+   "risk": []
+  },
+  "note.new": {
+   "paths": [],
+   "risk": []
+  },
+  "note.next": {
+   "paths": [],
+   "risk": []
+  },
+  "note.previous": {
+   "paths": [],
+   "risk": []
+  },
+  "note.split": {
+   "paths": [],
+   "risk": []
+  },
+  "object.align": {
+   "paths": [],
+   "risk": []
+  },
+  "object.altText": {
+   "paths": [],
+   "risk": []
+  },
+  "object.arrange": {
+   "paths": [],
+   "risk": []
+  },
+  "object.attributes": {
+   "paths": [],
+   "risk": []
+  },
+  "object.bevel": {
+   "paths": [],
+   "risk": []
+  },
+  "object.bringForward": {
+   "paths": [],
+   "risk": []
+  },
+  "object.bringToFront": {
+   "paths": [],
+   "risk": []
+  },
+  "object.caption": {
+   "paths": [],
+   "risk": []
+  },
+  "object.clearFittingOptions": {
+   "paths": [],
+   "risk": []
+  },
+  "object.clippingPath": {
+   "paths": [],
+   "risk": []
+  },
+  "object.clippingPathOptions": {
+   "paths": [],
+   "risk": []
+  },
+  "object.color": {
+   "paths": [],
+   "risk": []
+  },
+  "object.content": {
+   "paths": [],
+   "risk": []
+  },
+  "object.convertShape": {
+   "paths": [],
+   "risk": []
+  },
+  "object.cornerOptions": {
+   "paths": [],
+   "risk": []
+  },
+  "object.defaultFillStroke": {
+   "paths": [],
+   "risk": []
+  },
+  "object.directionalFeather": {
+   "paths": [],
+   "risk": []
+  },
+  "object.distribute": {
+   "paths": [],
+   "risk": []
+  },
+  "object.dropShadow": {
+   "paths": [],
+   "risk": []
+  },
+  "object.effects": {
+   "paths": [],
+   "risk": []
+  },
+  "object.exportOptions": {
+   "paths": [],
+   "risk": []
+  },
+  "object.feather": {
+   "paths": [],
+   "risk": []
+  },
+  "object.fill": {
+   "paths": [],
+   "risk": []
+  },
+  "object.findByLabel": {
+   "paths": [],
+   "risk": [
+    "script"
+   ]
+  },
+  "object.fit": {
+   "paths": [],
+   "risk": []
+  },
+  "object.fittingOptions": {
+   "paths": [],
+   "risk": []
+  },
+  "object.globalLight": {
+   "paths": [],
+   "risk": []
+  },
+  "object.gradient": {
+   "paths": [],
+   "risk": [
+    "print"
+   ]
+  },
+  "object.gradientFeather": {
+   "paths": [],
+   "risk": []
+  },
+  "object.group": {
+   "paths": [],
+   "risk": []
+  },
+  "object.hide": {
+   "paths": [],
+   "risk": []
+  },
+  "object.innerGlow": {
+   "paths": [],
+   "risk": []
+  },
+  "object.innerShadow": {
+   "paths": [],
+   "risk": []
+  },
+  "object.label": {
+   "paths": [],
+   "risk": [
+    "script"
+   ]
+  },
+  "object.layerOptions": {
+   "paths": [],
+   "risk": []
+  },
+  "object.lock": {
+   "paths": [],
+   "risk": []
+  },
+  "object.makeCompoundPath": {
+   "paths": [],
+   "risk": []
+  },
+  "object.matchAttributes": {
+   "paths": [],
+   "risk": []
+  },
+  "object.opacity": {
+   "paths": [],
+   "risk": []
+  },
+  "object.outerGlow": {
+   "paths": [],
+   "risk": []
+  },
+  "object.pathfinder": {
+   "paths": [],
+   "risk": []
+  },
+  "object.pdfLayers": {
+   "paths": [],
+   "risk": []
+  },
+  "object.primaryTextFrame": {
+   "paths": [],
+   "risk": []
+  },
+  "object.qrCode": {
+   "paths": [],
+   "risk": [
+    "url"
+   ]
+  },
+  "object.releaseCompoundPath": {
+   "paths": [],
+   "risk": []
+  },
+  "object.rename": {
+   "paths": [],
+   "risk": []
+  },
+  "object.reorder": {
+   "paths": [],
+   "risk": []
+  },
+  "object.satin": {
+   "paths": [],
+   "risk": []
+  },
+  "object.sendBackward": {
+   "paths": [],
+   "risk": []
+  },
+  "object.sendToBack": {
+   "paths": [],
+   "risk": []
+  },
+  "object.setFlags": {
+   "paths": [],
+   "risk": []
+  },
+  "object.setLayer": {
+   "paths": [],
+   "risk": []
+  },
+  "object.showAll": {
+   "paths": [],
+   "risk": []
+  },
+  "object.stroke": {
+   "paths": [],
+   "risk": []
+  },
+  "object.swapFillStroke": {
+   "paths": [],
+   "risk": []
+  },
+  "object.textFrameOptions": {
+   "paths": [],
+   "risk": []
+  },
+  "object.textWrap": {
+   "paths": [],
+   "risk": []
+  },
+  "object.transparencyGroup": {
+   "paths": [],
+   "risk": []
+  },
+  "object.ungroup": {
+   "paths": [],
+   "risk": []
+  },
+  "object.unlockAll": {
+   "paths": [],
+   "risk": []
+  },
+  "page.transition": {
+   "paths": [],
+   "risk": []
+  },
+  "page.transitions": {
+   "paths": [],
+   "risk": []
+  },
+  "path.addAnchor": {
+   "paths": [],
+   "risk": []
+  },
+  "path.appendAnchor": {
+   "paths": [],
+   "risk": []
+  },
+  "path.close": {
+   "paths": [],
+   "risk": []
+  },
+  "path.convertAnchor": {
+   "paths": [],
+   "risk": []
+  },
+  "path.convertPoints": {
+   "paths": [
+    "paths"
+   ],
+   "risk": []
+  },
+  "path.create": {
+   "paths": [],
+   "risk": []
+  },
+  "path.deleteAnchor": {
+   "paths": [],
+   "risk": []
+  },
+  "path.deletePoints": {
+   "paths": [],
+   "risk": []
+  },
+  "path.erase": {
+   "paths": [],
+   "risk": []
+  },
+  "path.join": {
+   "paths": [
+    "path",
+    "paths"
+   ],
+   "risk": []
+  },
+  "path.moveAnchors": {
+   "paths": [],
+   "risk": []
+  },
+  "path.reverse": {
+   "paths": [],
+   "risk": []
+  },
+  "path.setAnchor": {
+   "paths": [],
+   "risk": []
+  },
+  "path.smooth": {
+   "paths": [],
+   "risk": []
+  },
+  "path.split": {
+   "paths": [],
+   "risk": []
+  },
+  "place.drop": {
+   "paths": [],
+   "risk": []
+  },
+  "place.load": {
+   "paths": [],
+   "risk": []
+  },
+  "place.styles": {
+   "paths": [],
+   "risk": []
+  },
+  "preflight.run": {
+   "paths": [],
+   "risk": []
+  },
+  "prefs.set": {
+   "paths": [],
+   "risk": []
+  },
+  "script.run": {
+   "paths": [],
+   "risk": [
+    "script"
+   ]
+  },
+  "select.container": {
+   "paths": [],
+   "risk": []
+  },
+  "select.content": {
+   "paths": [],
+   "risk": []
+  },
+  "select.firstAbove": {
+   "paths": [],
+   "risk": []
+  },
+  "select.lastBelow": {
+   "paths": [],
+   "risk": []
+  },
+  "select.nextAbove": {
+   "paths": [],
+   "risk": []
+  },
+  "select.nextBelow": {
+   "paths": [],
+   "risk": []
+  },
+  "select.nextInGroup": {
+   "paths": [],
+   "risk": []
+  },
+  "select.previousInGroup": {
+   "paths": [],
+   "risk": []
+  },
+  "selection.key": {
+   "paths": [],
+   "risk": []
+  },
+  "selection.set": {
+   "paths": [],
+   "risk": []
+  },
+  "selection.toggle": {
+   "paths": [],
+   "risk": []
+  },
+  "snippet.export": {
+   "paths": [
+    "path"
+   ],
+   "risk": []
+  },
+  "snippet.place": {
+   "paths": [],
+   "risk": []
+  },
+  "spelling.addWord": {
+   "paths": [],
+   "risk": []
+  },
+  "spelling.change": {
+   "paths": [],
+   "risk": []
+  },
+  "spelling.check": {
+   "paths": [],
+   "risk": []
+  },
+  "spelling.setWords": {
+   "paths": [],
+   "risk": []
+  },
+  "spelling.words": {
+   "paths": [],
+   "risk": []
+  },
+  "states.create": {
+   "paths": [],
+   "risk": []
+  },
+  "states.list": {
+   "paths": [],
+   "risk": []
+  },
+  "states.release": {
+   "paths": [],
+   "risk": []
+  },
+  "states.rename": {
+   "paths": [],
+   "risk": []
+  },
+  "states.show": {
+   "paths": [],
+   "risk": []
+  },
+  "story.get": {
+   "paths": [],
+   "risk": []
+  },
+  "story.links": {
+   "paths": [],
+   "risk": []
+  },
+  "story.options": {
+   "paths": [],
+   "risk": []
+  },
+  "story.placeAndLink": {
+   "paths": [],
+   "risk": []
+  },
+  "story.replaceRange": {
+   "paths": [],
+   "risk": []
+  },
+  "story.setDirection": {
+   "paths": [],
+   "risk": []
+  },
+  "story.setText": {
+   "paths": [],
+   "risk": []
+  },
+  "story.unlink": {
+   "paths": [],
+   "risk": []
+  },
+  "story.updateLink": {
+   "paths": [],
+   "risk": []
+  },
+  "strokeStyle.delete": {
+   "paths": [],
+   "risk": []
+  },
+  "strokeStyle.list": {
+   "paths": [],
+   "risk": []
+  },
+  "strokeStyle.new": {
+   "paths": [],
+   "risk": []
+  },
+  "style.breakLink": {
+   "paths": [],
+   "risk": []
+  },
+  "style.cell.apply": {
+   "paths": [],
+   "risk": []
+  },
+  "style.cell.create": {
+   "paths": [],
+   "risk": []
+  },
+  "style.cell.edit": {
+   "paths": [],
+   "risk": []
+  },
+  "style.character.apply": {
+   "paths": [],
+   "risk": []
+  },
+  "style.character.create": {
+   "paths": [],
+   "risk": []
+  },
+  "style.character.delete": {
+   "paths": [],
+   "risk": []
+  },
+  "style.character.edit": {
+   "paths": [],
+   "risk": []
+  },
+  "style.character.redefine": {
+   "paths": [],
+   "risk": []
+  },
+  "style.compositeFont.list": {
+   "paths": [],
+   "risk": []
+  },
+  "style.compositeFont.set": {
+   "paths": [],
+   "risk": []
+  },
+  "style.exportTag": {
+   "paths": [],
+   "risk": []
+  },
+  "style.group": {
+   "paths": [],
+   "risk": []
+  },
+  "style.list": {
+   "paths": [],
+   "risk": []
+  },
+  "style.load": {
+   "paths": [],
+   "risk": []
+  },
+  "style.load.list": {
+   "paths": [],
+   "risk": []
+  },
+  "style.object.apply": {
+   "paths": [],
+   "risk": []
+  },
+  "style.object.clearOverrides": {
+   "paths": [],
+   "risk": []
+  },
+  "style.object.create": {
+   "paths": [],
+   "risk": []
+  },
+  "style.object.edit": {
+   "paths": [],
+   "risk": []
+  },
+  "style.paragraph.apply": {
+   "paths": [],
+   "risk": []
+  },
+  "style.paragraph.create": {
+   "paths": [],
+   "risk": []
+  },
+  "style.paragraph.delete": {
+   "paths": [],
+   "risk": []
+  },
+  "style.paragraph.edit": {
+   "paths": [],
+   "risk": []
+  },
+  "style.paragraph.redefine": {
+   "paths": [],
+   "risk": []
+  },
+  "style.table.apply": {
+   "paths": [],
+   "risk": []
+  },
+  "style.table.create": {
+   "paths": [],
+   "risk": []
+  },
+  "style.table.edit": {
+   "paths": [],
+   "risk": []
+  },
+  "swatch.addColorTheme": {
+   "paths": [],
+   "risk": []
+  },
+  "swatch.addToSwatches": {
+   "paths": [],
+   "risk": []
+  },
+  "swatch.addUnnamed": {
+   "paths": [],
+   "risk": []
+  },
+  "swatch.create": {
+   "paths": [],
+   "risk": []
+  },
+  "swatch.delete": {
+   "paths": [],
+   "risk": []
+  },
+  "swatch.load": {
+   "paths": [],
+   "risk": []
+  },
+  "swatch.moveToGroup": {
+   "paths": [],
+   "risk": []
+  },
+  "swatch.new": {
+   "paths": [],
+   "risk": []
+  },
+  "swatch.newColorGroup": {
+   "paths": [],
+   "risk": []
+  },
+  "swatch.options": {
+   "paths": [],
+   "risk": []
+  },
+  "swatch.renameColorGroup": {
+   "paths": [],
+   "risk": []
+  },
+  "swatch.save": {
+   "paths": [],
+   "risk": []
+  },
+  "swatch.ungroupColorGroup": {
+   "paths": [],
+   "risk": []
+  },
+  "table.convertFromText": {
+   "paths": [],
+   "risk": []
+  },
+  "table.convertRowsToBody": {
+   "paths": [],
+   "risk": []
+  },
+  "table.convertRowsToFooter": {
+   "paths": [],
+   "risk": []
+  },
+  "table.convertRowsToHeader": {
+   "paths": [],
+   "risk": []
+  },
+  "table.convertToText": {
+   "paths": [],
+   "risk": []
+  },
+  "table.delete": {
+   "paths": [],
+   "risk": []
+  },
+  "table.deleteColumn": {
+   "paths": [],
+   "risk": []
+  },
+  "table.deleteRow": {
+   "paths": [],
+   "risk": []
+  },
+  "table.distributeColumns": {
+   "paths": [],
+   "risk": []
+  },
+  "table.distributeRows": {
+   "paths": [],
+   "risk": []
+  },
+  "table.dropCells": {
+   "paths": [],
+   "risk": []
+  },
+  "table.get": {
+   "paths": [],
+   "risk": []
+  },
+  "table.getCellStroke": {
+   "paths": [],
+   "risk": []
+  },
+  "table.insert": {
+   "paths": [],
+   "risk": []
+  },
+  "table.insertColumn": {
+   "paths": [],
+   "risk": []
+  },
+  "table.insertColumnLeft": {
+   "paths": [],
+   "risk": []
+  },
+  "table.insertColumnRight": {
+   "paths": [],
+   "risk": []
+  },
+  "table.insertRow": {
+   "paths": [],
+   "risk": []
+  },
+  "table.insertRowAbove": {
+   "paths": [],
+   "risk": []
+  },
+  "table.insertRowBelow": {
+   "paths": [],
+   "risk": []
+  },
+  "table.merge": {
+   "paths": [],
+   "risk": []
+  },
+  "table.moveColumn": {
+   "paths": [],
+   "risk": []
+  },
+  "table.moveRow": {
+   "paths": [],
+   "risk": []
+  },
+  "table.nextCell": {
+   "paths": [],
+   "risk": []
+  },
+  "table.options": {
+   "paths": [],
+   "risk": []
+  },
+  "table.placeGraphic": {
+   "paths": [],
+   "risk": []
+  },
+  "table.prevCell": {
+   "paths": [],
+   "risk": []
+  },
+  "table.resizeBorder": {
+   "paths": [],
+   "risk": []
+  },
+  "table.select": {
+   "paths": [],
+   "risk": []
+  },
+  "table.selectColumn": {
+   "paths": [],
+   "risk": []
+  },
+  "table.selectRow": {
+   "paths": [],
+   "risk": []
+  },
+  "table.selectTable": {
+   "paths": [],
+   "risk": []
+  },
+  "table.setCell": {
+   "paths": [],
+   "risk": []
+  },
+  "table.setColumnWidth": {
+   "paths": [],
+   "risk": []
+  },
+  "table.setRowHeight": {
+   "paths": [],
+   "risk": []
+  },
+  "table.sortRows": {
+   "paths": [],
+   "risk": []
+  },
+  "table.splitHorizontally": {
+   "paths": [],
+   "risk": []
+  },
+  "table.splitVertically": {
+   "paths": [],
+   "risk": []
+  },
+  "table.textCell": {
+   "paths": [],
+   "risk": []
+  },
+  "table.toggleSelection": {
+   "paths": [],
+   "risk": []
+  },
+  "table.unmerge": {
+   "paths": [],
+   "risk": []
+  },
+  "text.delete": {
+   "paths": [],
+   "risk": []
+  },
+  "text.deleteSurrounding": {
+   "paths": [],
+   "risk": []
+  },
+  "text.exitToFrame": {
+   "paths": [],
+   "risk": []
+  },
+  "text.extendTo": {
+   "paths": [],
+   "risk": []
+  },
+  "text.insert": {
+   "paths": [],
+   "risk": []
+  },
+  "text.move": {
+   "paths": [
+    "dir"
+   ],
+   "risk": []
+  },
+  "text.placeCaret": {
+   "paths": [],
+   "risk": []
+  },
+  "text.release": {
+   "paths": [],
+   "risk": []
+  },
+  "text.removeFromThread": {
+   "paths": [],
+   "risk": []
+  },
+  "text.select": {
+   "paths": [],
+   "risk": []
+  },
+  "text.selectAt": {
+   "paths": [],
+   "risk": []
+  },
+  "text.selectParagraph": {
+   "paths": [],
+   "risk": []
+  },
+  "text.selectSentence": {
+   "paths": [],
+   "risk": []
+  },
+  "text.selectStory": {
+   "paths": [],
+   "risk": []
+  },
+  "text.selectWord": {
+   "paths": [],
+   "risk": []
+  },
+  "text.thread": {
+   "paths": [],
+   "risk": []
+  },
+  "text.unthread": {
+   "paths": [],
+   "risk": []
+  },
+  "toc.entries": {
+   "paths": [],
+   "risk": []
+  },
+  "toc.generate": {
+   "paths": [],
+   "risk": []
+  },
+  "toc.update": {
+   "paths": [],
+   "risk": []
+  },
+  "tool.list": {
+   "paths": [],
+   "risk": []
+  },
+  "tool.polygonSettings": {
+   "paths": [],
+   "risk": []
+  },
+  "tool.select": {
+   "paths": [],
+   "risk": []
+  },
+  "transform.again": {
+   "paths": [],
+   "risk": []
+  },
+  "transform.clear": {
+   "paths": [],
+   "risk": []
+  },
+  "transform.flip": {
+   "paths": [],
+   "risk": []
+  },
+  "transform.info": {
+   "paths": [],
+   "risk": []
+  },
+  "transform.move": {
+   "paths": [],
+   "risk": []
+  },
+  "transform.resize": {
+   "paths": [],
+   "risk": []
+  },
+  "transform.rotate": {
+   "paths": [],
+   "risk": []
+  },
+  "transform.scale": {
+   "paths": [],
+   "risk": []
+  },
+  "transform.set": {
+   "paths": [],
+   "risk": []
+  },
+  "transform.shear": {
+   "paths": [],
+   "risk": []
+  },
+  "type.align": {
+   "paths": [],
+   "risk": []
+  },
+  "type.alignCenter": {
+   "paths": [],
+   "risk": []
+  },
+  "type.alignLeft": {
+   "paths": [],
+   "risk": []
+  },
+  "type.alignRight": {
+   "paths": [],
+   "risk": []
+  },
+  "type.allCaps": {
+   "paths": [],
+   "risk": []
+  },
+  "type.autoTateChuYoko": {
+   "paths": [],
+   "risk": []
+  },
+  "type.bold": {
+   "paths": [],
+   "risk": []
+  },
+  "type.changeCase": {
+   "paths": [],
+   "risk": []
+  },
+  "type.char": {
+   "paths": [],
+   "risk": []
+  },
+  "type.createOutlines": {
+   "paths": [],
+   "risk": []
+  },
+  "type.feature": {
+   "paths": [],
+   "risk": []
+  },
+  "type.fillWithPlaceholder": {
+   "paths": [],
+   "risk": []
+  },
+  "type.gridSettings": {
+   "paths": [],
+   "risk": []
+  },
+  "type.italic": {
+   "paths": [],
+   "risk": []
+  },
+  "type.justify": {
+   "paths": [],
+   "risk": []
+  },
+  "type.kenten": {
+   "paths": [],
+   "risk": []
+  },
+  "type.kernPair": {
+   "paths": [],
+   "risk": []
+  },
+  "type.kernStep": {
+   "paths": [],
+   "risk": []
+  },
+  "type.onPath": {
+   "paths": [],
+   "risk": []
+  },
+  "type.openType": {
+   "paths": [],
+   "risk": []
+  },
+  "type.openTypeFeatures": {
+   "paths": [],
+   "risk": []
+  },
+  "type.para": {
+   "paths": [],
+   "risk": []
+  },
+  "type.pathOptions": {
+   "paths": [],
+   "risk": []
+  },
+  "type.pickUpFormat": {
+   "paths": [],
+   "risk": []
+  },
+  "type.romanWordBreak": {
+   "paths": [],
+   "risk": []
+  },
+  "type.rotateRoman": {
+   "paths": [],
+   "risk": []
+  },
+  "type.ruby": {
+   "paths": [],
+   "risk": []
+  },
+  "type.selectionAttrs": {
+   "paths": [],
+   "risk": []
+  },
+  "type.shatai": {
+   "paths": [],
+   "risk": []
+  },
+  "type.sizeDown": {
+   "paths": [],
+   "risk": []
+  },
+  "type.sizeUp": {
+   "paths": [],
+   "risk": []
+  },
+  "type.storyDirection": {
+   "paths": [],
+   "risk": []
+  },
+  "type.swapFillStroke": {
+   "paths": [],
+   "risk": []
+  },
+  "type.tabs.add": {
+   "paths": [],
+   "risk": []
+  },
+  "type.tabs.change": {
+   "paths": [],
+   "risk": []
+  },
+  "type.tabs.clear": {
+   "paths": [],
+   "risk": []
+  },
+  "type.tabs.get": {
+   "paths": [],
+   "risk": []
+  },
+  "type.tabs.move": {
+   "paths": [],
+   "risk": []
+  },
+  "type.tabs.remove": {
+   "paths": [],
+   "risk": []
+  },
+  "type.tabs.repeat": {
+   "paths": [],
+   "risk": []
+  },
+  "type.tateChuYoko": {
+   "paths": [],
+   "risk": []
+  },
+  "type.underline": {
+   "paths": [],
+   "risk": []
+  },
+  "type.warichu": {
+   "paths": [],
+   "risk": []
+  },
+  "variables.convertAllToText": {
+   "paths": [],
+   "risk": []
+  },
+  "variables.convertToText": {
+   "paths": [],
+   "risk": []
+  },
+  "variables.define": {
+   "paths": [],
+   "risk": []
+  },
+  "variables.delete": {
+   "paths": [],
+   "risk": []
+  },
+  "variables.insert": {
+   "paths": [],
+   "risk": []
+  },
+  "variables.list": {
+   "paths": [],
+   "risk": []
+  },
+  "view.lockColumnGuides": {
+   "paths": [],
+   "risk": []
+  },
+  "view.lockZeroPoint": {
+   "paths": [],
+   "risk": []
+  },
+  "view.zeroPoint": {
+   "paths": [],
+   "risk": []
+  },
+  "xml.deleteDtd": {
+   "paths": [],
+   "risk": []
+  },
+  "xml.deleteTag": {
+   "paths": [],
+   "risk": []
+  },
+  "xml.loadDtd": {
+   "paths": [],
+   "risk": []
+  },
+  "xml.mapStyle": {
+   "paths": [],
+   "risk": []
+  },
+  "xml.newTag": {
+   "paths": [],
+   "risk": []
+  },
+  "xml.structure": {
+   "paths": [],
+   "risk": []
+  },
+  "xml.tag": {
+   "paths": [],
+   "risk": []
+  },
+  "xml.tagText": {
+   "paths": [],
+   "risk": []
+  },
+  "xml.tags": {
+   "paths": [],
+   "risk": []
+  },
+  "xml.validate": {
+   "paths": [],
+   "risk": []
+  },
+  "xref.defineFormat": {
+   "paths": [],
+   "risk": []
+  },
+  "xref.formats": {
+   "paths": [],
+   "risk": []
+  },
+  "xref.insert": {
+   "paths": [],
+   "risk": []
+  },
+  "xref.list": {
+   "paths": [],
+   "risk": []
+  },
+  "xref.setFormat": {
+   "paths": [],
+   "risk": []
+  }
+ },
+ "tools": [
+  "batch",
+  "click",
+  "dialog_cancel",
+  "dialog_confirm",
+  "dialog_set",
+  "drag",
+  "execute",
+  "export_png",
+  "get_story",
+  "ime",
+  "inspect_document",
+  "key",
+  "list_commands",
+  "menu_list",
+  "new_document",
+  "open_document",
+  "place_image",
+  "pointer",
+  "render_page",
+  "save_document",
+  "screenshot",
+  "select_tool",
+  "set_story_text",
+  "type_text",
+  "ui_inspect",
+  "ui_set"
+ ],
+ "version": "0.20.1"
+}

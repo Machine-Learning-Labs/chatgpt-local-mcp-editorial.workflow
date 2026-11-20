@@ -32,6 +32,10 @@ class Policy:
     allow: frozenset[str] = frozenset()
     scopes: tuple[str, ...] = (DEFAULT_SCOPE,)
 
+    # Strict resources (DesignCraft) refuse JSON-RPC batches and always forward the
+    # re-serialized request, so the upstream parses exactly what the policy checked.
+    strict = False
+
     @classmethod
     def from_settings(cls, settings: Settings) -> Policy:
         return cls(
@@ -71,11 +75,22 @@ class Policy:
             return {k: self._rewrite(v, paths, str(k)) for k, v in obj.items()}
         if isinstance(obj, list):
             return [self._rewrite(v, paths, key) for v in obj]
-        if isinstance(obj, str) and obj and PATH_ARG.search(key):
+        if isinstance(obj, str) and obj and self.path_key(key):
             resolved = self.check_path(obj, key)
             paths.append(resolved)
             return resolved
         return obj
+
+    def path_key(self, key: str) -> bool:
+        """Whether an argument with this name carries a filesystem path."""
+        return bool(PATH_ARG.search(key))
+
+    def check_message(self, method: Any, params: Any) -> None:
+        """Validate a JSON-RPC message other than ``tools/call`` (default: anything goes)."""
+
+    def audit_detail(self, params: dict) -> str:
+        """Extra audit-log text for an allowed ``tools/call``."""
+        return ""
 
     def check_path(self, value: str, key: str = "path") -> str:
         if not self.root:

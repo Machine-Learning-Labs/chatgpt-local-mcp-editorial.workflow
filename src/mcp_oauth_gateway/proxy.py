@@ -75,10 +75,11 @@ class McpProxy:
         resource_path: str = EDITOR_PATH,
         upstream_url: str | None = None,
         host_header: str | None = None,
+        policy: Policy | None = None,
     ) -> None:
         self.oauth = oauth
         self.settings = oauth.settings
-        self.policy = Policy.from_settings(oauth.settings)
+        self.policy = policy or Policy.from_settings(oauth.settings)
         self.resource_path = resource_path
         self.upstream = (upstream_url or oauth.settings.upstream_url).rstrip("/")
         self.host_header = (
@@ -150,9 +151,12 @@ class McpProxy:
     # ------------------------------------------------------------------ policy
     def _apply_policy(self, body: bytes, claims: dict) -> tuple[bytes, bool, Response | None]:
         payload = json.loads(body)
+        if isinstance(payload, list) and self.policy.strict:
+            audit.warning("deny sub=%s reason=jsonrpc batch", claims.get("sub"))
+            return body, False, _jsonrpc_error(None, -32600, "JSON-RPC batches are not accepted")
         messages = payload if isinstance(payload, list) else [payload]
         rewrite = False
-        changed = False
+        changed = self.policy.strict  # strict: always forward the re-serialized request
         for message in messages:
             if not isinstance(message, dict):
                 continue
@@ -160,6 +164,17 @@ class McpProxy:
             if method in _REWRITE_METHODS:
                 rewrite = True
             if method != "tools/call":
+                try:
+                    self.policy.check_message(method, message.get("params"))
+                except PolicyError as exc:
+                    audit.warning(
+                        "deny sub=%s client=%s method=%s reason=%s",
+                        claims.get("sub"),
+                        _short(claims.get("client_id")),
+                        method,
+                        exc,
+                    )
+                    return body, False, _jsonrpc_error(message.get("id"), -32601, str(exc))
                 continue
             params = message.get("params")
             name = params.get("name") if isinstance(params, dict) else None
@@ -177,11 +192,12 @@ class McpProxy:
                     return body, False, _jsonrpc_error(None, -32600, str(exc))
                 return body, False, _tool_refusal(message.get("id"), str(exc))
             audit.info(
-                "call sub=%s client=%s tool=%s paths=%s",
+                "call sub=%s client=%s tool=%s paths=%s%s",
                 claims.get("sub"),
                 _short(claims.get("client_id")),
                 name,
                 paths,
+                self.policy.audit_detail(new_params),
             )
             if new_params != params:
                 message["params"] = new_params

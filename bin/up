@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# One command: setup → preflight → (host mode: scribus-mcp service) → stack → URL + token.
+# One command: setup → preflight → (host mode: scribus-mcp and DesignCraft services) → stack
+# → URL + token.
 #
 #   bin/up             build and start
 #   bin/up --no-build  start with existing images
 #
-# Host mode: if the systemd unit is not installed, scribus-mcp is started as a TRANSIENT
-# unit and bin/down removes it again, so nothing stays on the machine between sessions.
+# Host mode: if the systemd units are not installed, scribus-mcp (and DesignCraft, with
+# DESIGNCRAFT_ENABLED=true) start as TRANSIENT units and bin/down removes them again, so
+# nothing stays on the machine between sessions.
 source "$(dirname "$0")/lib.sh"
 
 BUILD=(--build)
@@ -17,6 +19,7 @@ BUILD=(--build)
 mode="$(mcp_mode)"
 if [[ "$mode" == "host" ]]; then
   "$ROOT/bin/host-service" start
+  if designcraft_enabled; then "$ROOT/bin/designcraft-service" start; fi
 fi
 
 info "starting stack ($(compose_cmd), mode $mode)"

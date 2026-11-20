@@ -18,6 +18,14 @@ updates:
     ignore:
       - dependency-name: "mcp"
         update-types: ["version-update:semver-major"]
+  - package-ecosystem: "pip"
+    # mcp-proxy, the DesignCraft bridge (bin/designcraft-service). Re-pin with make lock.
+    directory: "/containers/designcraft-mcp"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "mcp"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

@@ -1,0 +1,19 @@
+# DesignCraft connector (/designcraft/mcp), added by bin/lib.sh only when MCP_MODE=host and
+# DESIGNCRAFT_ENABLED=true:
+#   docker compose -f docker-compose.yml -f docker-compose.host.yml -f docker-compose.designcraft.yml
+#
+# DesignCraft runs on the host as a systemd user service (bin/designcraft-service): mcp-proxy
+# on 127.0.0.1:DESIGNCRAFT_PORT in front of `designcraft-cli mcp`, which confines every file
+# to EDITORIAL_ROOT itself. The gateway shares the host network and adds the policy
+# (src/mcp_oauth_gateway/policy_designcraft.py). See docs/designcraft.md.
+
+services:
+  gateway:
+    environment:
+      DESIGNCRAFT_UPSTREAM_URL: http://127.0.0.1:${DESIGNCRAFT_PORT:-8767}/mcp
+      DESIGNCRAFT_UPSTREAM_HOST_HEADER: localhost:${DESIGNCRAFT_PORT:-8767}
+      ASSETS_SUBDIR: ${ASSETS_SUBDIR:-libro/assets}
+      # Empty = the reviewed defaults in src/mcp_oauth_gateway/config.py.
+      DESIGNCRAFT_ALLOW_TOOLS: ${DESIGNCRAFT_ALLOW_TOOLS:-}
+      DESIGNCRAFT_ALLOW_COMMANDS: ${DESIGNCRAFT_ALLOW_COMMANDS:-}
+      DESIGNCRAFT_DENY_COMMANDS: ${DESIGNCRAFT_DENY_COMMANDS:-}

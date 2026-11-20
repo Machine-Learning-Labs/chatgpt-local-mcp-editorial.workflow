@@ -11,12 +11,14 @@ MCP client ─HTTPS─▶ ngrok edge ─▶ ngrok agent ─▶ gateway:8080 ─�
                                   (bridge network; only the gateway publishes 127.0.0.1:8080)
 ```
 
+Optionally, in host mode, **DesignCraft** is a third protected resource at `/designcraft/mcp`: mcp-proxy on `127.0.0.1:8767` (a systemd user unit, `bin/designcraft-service`) in front of `designcraft-cli mcp`, headless and confined to `EDITORIAL_ROOT` by DesignCraft itself. It has its own fail-closed policy (`policy_designcraft.py`). See [designcraft.md](designcraft.md).
+
 A third container, **assets** (`src/editorial_assets`), is a second protected resource at `/assets/mcp`. It runs on host networking with loopback `127.0.0.1:8766` in host mode, and as `assets:8766` in container mode. The gateway also passes `/upload/<token>` through to it without a bearer: the signed single-use token is the capability. See [assets-connector.md](assets-connector.md).
 
 The gateway (`src/mcp_oauth_gateway`) does three jobs:
 
 1. **OAuth 2.1 authorization server.** It implements RFC 8414 metadata, RFC 7591 DCR, PKCE S256, RFC 9207 `iss` and refresh tokens (re-issued on use; stateless, so the previous one lives until it expires).
-2. **Resource server.** On every `/editor/mcp` and `/assets/mcp` request it checks the bearer token (signature, `typ`, expiry, audience, scope) and the client IP allowlist.
+2. **Resource server.** On every `/editor/mcp`, `/assets/mcp` and `/designcraft/mcp` request it checks the bearer token (signature, `typ`, expiry, audience, scope) and the client IP allowlist.
 3. **Policy enforcement point.** It reads the JSON-RPC traffic (`policy.py`, `proxy.py`), refuses denied tools and paths outside `EDITORIAL_ROOT`, and rewrites `tools/list` and `initialize`.
 
 ## OAuth flow (MCP authorization spec 2025-06-18)
@@ -53,11 +55,13 @@ The path jail needs the gateway to see the real filesystem so it can resolve sym
 | The issuer is the `Host` header plus the scheme from a trusted proxy | Random ngrok URLs work without configuration, and nothing a client sends (`X-Forwarded-Host`, a first `X-Forwarded-Proto` hop) can change it. `PUBLIC_URL` pins the issuer when needed. |
 | uvicorn runs with `proxy_headers=False` | uvicorn's rewriting takes the *first* `X-Forwarded-For` hop, which the client controls. `network.py` takes the *last* hop, and only from `GATEWAY_TRUSTED_PROXIES`, for the IP allowlist, the rate limiter and the audit log. |
 | Body caps per route (`max_body_size`) | Starlette cuts a body off while it streams in, so a chunked request without `Content-Length` is bounded too. Streamable HTTP has one endpoint per resource, so no sub-paths are routed upstream. |
+| DesignCraft headless, behind mcp-proxy, never `--connect` | DesignCraft's MCP is stdio only; mcp-proxy is a maintained bridge (no MCP of ours). Only the in-process engine is confined by DesignCraft's own read/write roots: a connected desktop app is not, and its dialog tools take paths the gateway can't see. |
+| A fail-closed policy for DesignCraft | Two generic tools (`execute`, `batch`) reach ~550 commands, and DesignCraft releases often: allow-lists plus a version gate (`DESIGNCRAFT_VERSION`, `bin/designcraft-audit`) keep unreviewed tools and commands out. |
 | Dependencies pinned with hashes (`make lock`) | What runs on the host (scribus-mcp) and in the images is exactly the reviewed set. CI audits it with `pip-audit`; Dependabot proposes updates. |
 
 ## Multiple protected resources
 
-Each resource has its own protected resource metadata (`/.well-known/oauth-protected-resource/<path>`), its own `WWW-Authenticate` challenge and its own audience. A token for `/mcp` gets a 401 on `/assets/mcp`, and vice versa. Both resources share one authorization server, one consent password and one signing key.
+Each resource has its own protected resource metadata (`/.well-known/oauth-protected-resource/<path>`), its own `WWW-Authenticate` challenge, its own audience and its own `McpProxy`. `/editor/mcp` and `/assets/mcp` share the policy built from `POLICY_*`; `/designcraft/mcp` gets `DesignCraftPolicy`, which adds tool and command allow-lists, request shapes, literal paths and refuses JSON-RPC batches. A token for `/mcp` gets a 401 on `/assets/mcp`, and vice versa. Both resources share one authorization server, one consent password and one signing key.
 
 ## Known limits
 

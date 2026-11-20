@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# After a DesignCraft upgrade: what changed since the version the gateway policy was
+# reviewed against (new tools, new or changed commands, path parameters, commands that
+# mention printing, the clipboard, URLs or programs).
+#
+#   bin/designcraft-audit            compare the installed designcraft-cli with the snapshot
+#   bin/designcraft-audit --update   record the installed version as reviewed (after review)
+#
+# The snapshot is containers/designcraft-mcp/reviewed.json. After --update, set
+# DESIGNCRAFT_VERSION in .env and .env.example to the new version (bin/designcraft-service
+# refuses to start until they match).
+source "$(dirname "$0")/lib.sh"
+
+cli="$(env_get DESIGNCRAFT_CLI /usr/bin/designcraft-cli)"
+[[ -x "$cli" ]] || die "designcraft-cli not found at $cli (DESIGNCRAFT_CLI)"
+have python3 || die "python3 is required"
+for arg in "$@"; do
+  [[ "$arg" == "--update" ]] || die "unknown option: $arg"
+done
+python3 -I "$ROOT/containers/designcraft-mcp/audit.py" "$cli" \
+  "$ROOT/containers/designcraft-mcp/reviewed.json" \
+  "$ROOT/src/mcp_oauth_gateway/policy_designcraft.py" "$@"

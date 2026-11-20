@@ -21,6 +21,8 @@ The full diagram and flow are in [docs/architecture.md](../docs/architecture.md)
 - Only `tools/list` and `initialize` responses are buffered and rewritten (JSON or SSE). Everything else is streamed. If a rewrite fails, the gateway answers 502 and never passes the response through unfiltered.
 - Tokens are audience-bound. The proxy checks `aud` against `base_url(request)` + the resource path (`/editor/mcp` or `/assets/mcp`, constants in `config.py`), so local checks need `bin/token --local`.
 - Client IP: the last `X-Forwarded-For` hop is used, and only when the peer is in `GATEWAY_TRUSTED_PROXIES`.
+- **One policy per resource.** `McpProxy(policy=...)`; editor and assets share `Policy.from_settings`, DesignCraft gets `DesignCraftPolicy` (`policy_designcraft.py`). Base hooks: `path_key`, `check_message` (non-`tools/call` methods), `audit_detail`, and `strict` (refuse JSON-RPC arrays, always forward the re-serialized body).
+- **DesignCraft fails closed.** Allow-lists for tools and command patterns (`config.py` defaults), then a deny list; `execute`/`batch` shapes are exact and batch `script` text is refused; path keys are exactly `path`, `dir`, `coverImage` and must not contain `$` (batch references resolve after the check); `fileName` is a template, not a path. The engine's own roots are the primary file control.
 - `PATH_ARG` was checked against every tool of scribus-mcp 1.3.1 (175 tools, parsed with `ast`): the only path arguments are `path`, `image_path`, `font_path` and `target_dir`. Repeat the check when the version changes.
 
 ## Dependencies
@@ -32,6 +34,7 @@ The full diagram and flow are in [docs/architecture.md](../docs/architecture.md)
 
 - `bin/lib.sh` is the single source of truth for engine detection, `.env` access, profile and upstream selection, the container user and public URL discovery.
 - Modes are selected through compose files. Container mode is `docker-compose.yml` with `--profile container`. Host mode adds `docker-compose.host.yml`, which puts the gateway and ngrok on the host network with `ports: !reset []` and bindings to 127.0.0.1.
+- DesignCraft is a separate script, `bin/designcraft-service`, not a profile of `host-service` (whose Scribus unit stays untouched). Its `ExecStart` is `bin/designcraft-service run`, which re-checks the version gate on every (re)start and then `exec env -i` mcp-proxy with a private `HOME`. `docker-compose.designcraft.yml` is added by `compose_env` only with host mode and `DESIGNCRAFT_ENABLED=true`.
 - In host mode, scribus-mcp is a systemd user unit (`bin/host-service`). `bin/up` starts it as a transient unit unless one is installed. `bin/down` stops it only when it's transient (`--all` stops it either way).
 - `EDITORIAL_ROOT` is mounted at the same absolute path everywhere: read-only in the gateway (for `realpath`), read-write in the scribus-mcp container.
 - The container user is `0:0` on rootless Podman and `uid:gid` on Docker, so files in the workspace belong to the owner.

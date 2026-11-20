@@ -6,6 +6,7 @@
 #   bin/token --ttl 86400     custom lifetime in seconds
 #   bin/token --local         token for http://127.0.0.1:$GATEWAY_PORT (tokens are bound to one URL)
 #   bin/token --assets        token for the Editorial Assets connector (/assets/mcp)
+#   bin/token --designcraft   token for the DesignCraft connector (/designcraft/mcp)
 source "$(dirname "$0")/lib.sh"
 
 QUIET=0 LOCAL=0 RESOURCE=/editor/mcp ARGS=()
@@ -15,7 +16,8 @@ while (( $# )); do
     --ttl) ARGS+=(--ttl "$2"); shift ;;
     --local) LOCAL=1 ;;
     --assets) RESOURCE=/assets/mcp ;;
-    -h|--help) sed -n '2,6p' "$0"; exit 0 ;;
+    --designcraft) RESOURCE=/designcraft/mcp ;;
+    -h|--help) sed -n '2,9p' "$0"; exit 0 ;;
     *) die "unknown option: $1" ;;
   esac
   shift
@@ -45,6 +47,7 @@ URL="${PUBLIC:-$(gateway_local_url)}$RESOURCE"
 cat <<EOF
 ${C_GRN}Editor${C_OFF}    $URL
 ${C_GRN}Assets${C_OFF}    ${PUBLIC:-$(gateway_local_url)}/assets/mcp  (second connector: images → $(editorial_root)/$(env_get ASSETS_SUBDIR libro/assets))
+$(designcraft_enabled && [[ "$(mcp_mode)" == host ]] && echo "${C_GRN}DesignCraft${C_OFF} ${PUBLIC:-$(gateway_local_url)}/designcraft/mcp  (third connector: headless DesignCraft in $(editorial_root))")
 ${C_GRN}Token${C_OFF}     $TOKEN
 
 ${C_DIM}# OAuth clients (claude.ai connectors, ChatGPT, Claude Code) only need the URL;

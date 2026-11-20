@@ -154,10 +154,14 @@ cmd_uninstall() {
     ok "removed $UNIT_FILE"
   fi
   systemctl --user reset-failed "$UNIT" >/dev/null 2>&1 || true
-  if [[ -d "$DATA_DIR" ]]; then
-    rm -rf "$DATA_DIR"
-    ok "removed runtime $DATA_DIR"
-  fi
+  # Only scribus-mcp's runtimes: the folder also holds DesignCraft's (bin/designcraft-service).
+  local venv
+  for venv in "$DATA_DIR"/scribus-mcp-*; do
+    [[ -d "$venv" ]] || continue
+    rm -rf "$venv"
+    ok "removed runtime $venv"
+  done
+  rmdir "$DATA_DIR" 2>/dev/null || true
   ok "nothing of $UNIT is left on this machine (your $ROOT_DIR is untouched)"
 }
 

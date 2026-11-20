@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
-# Stop the stack. In host mode also stop scribus-mcp if it was started as a transient
-# unit by bin/up (an installed unit keeps running unless --all is given).
+# Stop the stack. In host mode also stop scribus-mcp and DesignCraft if they were started as
+# transient units by bin/up (an installed unit keeps running unless --all is given).
 #
-#   bin/down           stop containers (+ transient scribus-mcp)
-#   bin/down --all     also stop an installed scribus-mcp unit
+#   bin/down           stop containers (+ transient scribus-mcp / DesignCraft)
+#   bin/down --all     also stop installed scribus-mcp / DesignCraft units
 source "$(dirname "$0")/lib.sh"
 
 compose down --remove-orphans
 if [[ "$(mcp_mode)" == "host" ]] && have systemctl; then
   if [[ "${1:-}" == "--all" ]] || "$ROOT/bin/host-service" is-transient; then
     "$ROOT/bin/host-service" stop
+  fi
+  if [[ "${1:-}" == "--all" ]] || "$ROOT/bin/designcraft-service" is-transient; then
+    "$ROOT/bin/designcraft-service" stop
   fi
 fi
 ok "stopped"

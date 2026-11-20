@@ -21,7 +21,7 @@ from urllib.parse import unquote_plus, urlencode, urlsplit
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
-from .config import ASSETS_PATH, EDITOR_PATH, Settings
+from .config import ASSETS_PATH, DESIGNCRAFT_PATH, EDITOR_PATH, Settings
 from .network import client_ip, forwarded_proto
 from .pages import consent_page, error_page
 from .tokens import Signer, TokenError, pkce_s256
@@ -156,6 +156,8 @@ class OAuthServer:
         found = {EDITOR_PATH: "Scribus editor"}
         if self.settings.assets_upstream_url:
             found[ASSETS_PATH] = "Editorial Assets"
+        if self.settings.designcraft_upstream_url:
+            found[DESIGNCRAFT_PATH] = "DesignCraft"
         return found
 
     def resource_url(self, request: Request, path: str = EDITOR_PATH) -> str:

@@ -55,6 +55,20 @@
 - [x] The full `make up` in host mode with ngrok, and ChatGPT connecting (owner confirmed on 2026-10-12, tagged v0.2.0).
 - [x] The interactive bridge with `python3-pyqt5` installed (owner confirmed).
 
+### Dependencies and open-source readiness (2026-11-20)
+
+- [x] Dependabot batch consolidated (#16): pillow 13.0.0 and certifi 2026.10.23 fix the `audit` failures, starlette 1.10.0, python-multipart 0.0.34, ruff, pytest, `python:3.15-slim`, setup-uv 10.3.3. `pip-audit` is clean on every set; both images build and run on 3.15.2. The owner also merged the individual Dependabot PRs; `main` was verified consistent (lock current, exports match).
+- [x] Open-source review: gitleaks over the full history found nothing, `.env` was never tracked, emails are noreply, CI is safe for fork PRs, licences are permissive. Unused Scribus logo removed, trademark notice added (#17). Web merges show the owner's GitHub display name (noreply email).
+
+### DesignCraft connector (2026-11-20)
+
+- [x] 241 tests at 93 % coverage (56 new for `/designcraft/mcp`, `policy_designcraft.py` at 97 %). ruff and shellcheck are clean.
+- [x] Probe of headless `designcraft-cli mcp` with roots: `/etc/passwd`, saves and `file.package` outside the root were refused; nothing was written outside it or into HOME. `key {P, cmd}` ran `lp` (no printer), hence `key` is hidden. Resources are `designcraft://` only.
+- [x] `bin/designcraft-service` on this machine with a throwaway name, port, data dir and `.env`: transient and installed lifecycles, `uninstall` leaves nothing, loopback only, foreign `Host` → 421. The child had only `HOME` (private) and `PATH`, and no sockets. The version gate refuses a mismatch.
+- [x] The real gateway (`.venv`) in front of it: tokens per audience, 12 tools listed, `key` / `file.print` / batch `script` / outside paths refused, `render_page` PNG, save inside the root, `commands=[…]` in the audit log.
+- [ ] From ChatGPT web through ngrok (owner): add the third connector and lay out a page with an image from Editorial Assets.
+- [ ] `make up` / `make check-live` with `DESIGNCRAFT_ENABLED=true` on the real `.env`.
+
 ## Not verified yet
 
 - [ ] Docker Engine (only Podman is available here). CI covers compose config and image builds.

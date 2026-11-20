@@ -4,7 +4,7 @@ These are instructions for AI coding agents and for people working on this repos
 
 ## What this project is
 
-The project lets ChatGPT or Claude drive the owner's **desktop Scribus**, safely, with one command (`make up`). We **reuse** [caewa/scribus-mcp](https://github.com/caewa/scribus-mcp) and do not write our own MCP. The only code we own is the OAuth gateway and policy layer in `src/mcp_oauth_gateway/`, plus the glue around it: compose, containers, systemd and `bin/`.
+The project lets ChatGPT or Claude drive the owner's **desktop Scribus**, safely, with one command (`make up`), and optionally a headless **DesignCraft**. We **reuse** [caewa/scribus-mcp](https://github.com/caewa/scribus-mcp) and DesignCraft's own `designcraft-cli mcp` (behind [mcp-proxy](https://github.com/sparfenyuk/mcp-proxy)), and do not write our own MCP for either. The only code we own is the OAuth gateway and policy layer in `src/mcp_oauth_gateway/`, the Editorial Assets server, plus the glue around them: compose, containers, systemd and `bin/`.
 
 There are two modes:
 - `MCP_MODE=host` (default): scribus-mcp runs as a systemd user unit, and the gateway and ngrok run on the host network, so everything listens on loopback.
@@ -15,9 +15,12 @@ There are two modes:
 ```
 docker-compose.yml          gateway + scribus-mcp (profile "container") + ngrok
 docker-compose.host.yml     host-mode override: gateway + ngrok + assets on host network, loopback only
+docker-compose.designcraft.yml  host mode + DESIGNCRAFT_ENABLED=true: the gateway's /designcraft/mcp upstream
 containers/assets/          Containerfile for the Editorial Assets MCP server
 containers/gateway/         Containerfile for the gateway (python:3.12-slim)
 containers/scribus-mcp/     Containerfile for Debian trixie + scribus + xvfb + scribus-mcp (pip)
+containers/designcraft-mcp/ no image: mcp-proxy pins (host venv), audit.py + reviewed.json (the
+                            reviewed DesignCraft tools/commands snapshot)
 src/mcp_oauth_gateway/
   config.py                 Settings.from_env(): every env var the gateway reads
   tokens.py                 HS256 compact JWS, stdlib only; PKCE helper
@@ -25,6 +28,8 @@ src/mcp_oauth_gateway/
   oauth.py                  metadata (RFC 9728/8414), DCR (RFC 7591), /authorize, /token
   proxy.py                  IP allowlist, bearer/aud check, body cap, JSON-RPC policy, streaming proxy
   policy.py                 tool deny/allow lists, path jail (POLICY_ROOT), tools/list rewriting
+  policy_designcraft.py     /designcraft/mcp: tool + command allow-lists, execute/batch shapes,
+                            literal path keys, no JSON-RPC batches, designcraft:// resources
   pages.py                  consent / error HTML
   app.py                    Starlette wiring (create_app), per-route max_body_size, CORS, GuardMiddleware
   cli.py                    `mcp-oauth-gateway serve | token` (uvicorn with proxy_headers=False)
@@ -36,6 +41,8 @@ src/editorial_assets/       second MCP (our code): images from ChatGPT → EDITO
 tests/                      pytest; FakeUpstream (conftest.py) stands in for the MCP
 bin/                        every operational script; lib.sh holds the shared helpers
   host-service              scribus-mcp systemd user unit: start (transient) / install / uninstall
+  designcraft-service       mcp-proxy + headless designcraft-cli unit (same lifecycle; version gate)
+  designcraft-audit         after a DesignCraft upgrade: diff against the reviewed snapshot
   scribus                   open the desktop Scribus with the MCP bridge
   lock                      regenerate uv.lock and containers/*/requirements.txt (hash pins)
 uv.lock                     the project's locked dependency set (bin/setup --dev, CI)
@@ -55,6 +62,7 @@ memory-bank/                living project memory (decisions, progress, current 
 - Test `bin/host-service` with `HOST_SERVICE_NAME=ewf-test-… EWF_DATA_DIR=/tmp/…` and another `HOST_MCP_PORT` **in the throwaway env file** (`ENV_FILE=…`; the port is read from `.env`, not from the environment). Always finish with `uninstall`.
 - `make lock` after any change to `pyproject.toml` or `SCRIBUS_MCP_VERSION`, and commit the result. CI runs `uv sync --locked` and fails if the lock is stale.
 - Never call tools with `mode="interactive"` while testing on the owner's machine. It would drive their open Scribus.
+- Test `bin/designcraft-service` the same way: `DESIGNCRAFT_SERVICE_NAME=ewf-test-… EWF_DATA_DIR=/tmp/…` and another `DESIGNCRAFT_PORT` in a throwaway `ENV_FILE`, then `uninstall`. Never connect it to the owner's desktop DesignCraft (`--connect`).
 
 ## Rules
 
@@ -76,6 +84,7 @@ memory-bank/                living project memory (decisions, progress, current 
    - the per-route `max_body_size` caps,
    - the hash pins.
    Any new tool argument that carries a path must be covered by `PATH_ARG` in `policy.py`. When `SCRIBUS_MCP_VERSION` changes, re-check the argument names of every tool (parse the package with `ast`, don't import it) against `PATH_ARG`.
+   For DesignCraft, the controls are also: the engine's `--automation-read-root`/`--automation-write-root`, the tool and command allow-lists and deny list in `config.py`, `PATH_KEYS` and the shape rules in `policy_designcraft.py`, the private `HOME`/no-display environment and the version gate in `bin/designcraft-service`. When DesignCraft is upgraded, run `bin/designcraft-audit`, review every line, update the policy, then `--update` the snapshot and `DESIGNCRAFT_VERSION`. Never use `--connect` (the desktop app is not confined).
 8. **Upstream quirks you must keep handling:**
    - scribus-mcp 1.3.x imports `mcp.server.fastmcp`, so pin `mcp<2` wherever you install it.
    - FastMCP rejects a `Host` other than localhost (421) and a foreign `Origin` (403). The gateway sends `UPSTREAM_HOST_HEADER` and drops `Origin`.

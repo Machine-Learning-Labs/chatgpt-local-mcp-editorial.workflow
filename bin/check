@@ -66,6 +66,7 @@ preflight() {
     host) host_preflight ;;
     *) err "MCP_MODE must be container or host (got $mode)" ;;
   esac
+  designcraft_preflight
 
   info "ports"
   local port; port="$(env_get GATEWAY_PORT 8080)"
@@ -99,6 +100,32 @@ host_preflight() {
     ok "scribus-mcp service already running"
   elif (exec 3<>"/dev/tcp/127.0.0.1/$(env_get HOST_MCP_PORT 8765)") 2>/dev/null; then
     err "port $(env_get HOST_MCP_PORT 8765) is busy (HOST_MCP_PORT)"
+  fi
+}
+
+designcraft_preflight() {
+  local cli want found port
+  cli="$(env_get DESIGNCRAFT_CLI /usr/bin/designcraft-cli)"
+  if ! designcraft_enabled; then
+    [[ -x "$cli" ]] && info "DesignCraft is installed: set DESIGNCRAFT_ENABLED=true for a third connector (docs/designcraft.md)"
+    return 0
+  fi
+  [[ "$(mcp_mode)" == "host" ]] || { err "DESIGNCRAFT_ENABLED=true needs MCP_MODE=host"; return; }
+  [[ -x "$cli" ]] || { err "designcraft-cli not found at $cli (install DesignCraft or set DESIGNCRAFT_CLI)"; return; }
+  want="$(env_get DESIGNCRAFT_VERSION 0.20.1)"
+  found="$("$cli" --version 2>/dev/null | awk '{print $2}')"
+  [[ "$found" == "$want" ]] && ok "designcraft-cli $found (the version the gateway policy was reviewed for)" \
+    || err "designcraft-cli is $found, the policy was reviewed for $want: run bin/designcraft-audit (docs/designcraft.md)"
+  port="$(env_get DESIGNCRAFT_PORT 8767)"
+  local others=("$(env_get GATEWAY_PORT 8080)" "$(env_get HOST_MCP_PORT 8765)" "$(env_get ASSETS_PORT 8766)")
+  [[ " ${others[*]} " == *" $port "* ]] && err "DESIGNCRAFT_PORT=$port is already used by another service"
+  if "$ROOT/bin/designcraft-service" is-transient 2>/dev/null \
+    || systemctl --user is-active --quiet "${DESIGNCRAFT_SERVICE_NAME:-editorial-designcraft-mcp}"; then
+    ok "DesignCraft service already running"
+  elif (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; then
+    err "port $port is busy (DESIGNCRAFT_PORT)"
+  else
+    ok "DesignCraft: mcp-proxy + designcraft-cli (headless, confined to $(editorial_root)) on 127.0.0.1:$port"
   fi
 }
 
@@ -164,6 +191,34 @@ assets_live() {
   fi
 }
 
+designcraft_live() {
+  local local_url="$1" token body code listeners
+  code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$local_url/designcraft/mcp")"
+  [[ "$code" == "401" ]] && ok "/designcraft/mcp without token → 401" || err "/designcraft/mcp without token returned $code"
+  token="$("$ROOT/bin/token" --quiet --local --designcraft)" || { err "could not mint a DesignCraft token"; return; }
+  code="$(curl -sS -X POST "$local_url/editor/mcp" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' -d '{}' -o /dev/null -w '%{http_code}')"
+  [[ "$code" == "401" ]] && ok "DesignCraft token rejected by the Scribus connector (separate audience)" \
+    || err "DesignCraft token accepted by /editor/mcp ($code)"
+  body="$(curl -sS -X POST "$local_url/designcraft/mcp" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
+    -H 'Accept: application/json, text/event-stream' -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' || true)"
+  if grep -q '"render_page"' <<<"$body" && ! grep -q '"name": *"key"' <<<"$body"; then
+    ok "DesignCraft connector: reviewed tools only (key and window tools hidden)"
+  else
+    err "DesignCraft tools/list failed or shows unreviewed tools (bin/designcraft-service logs)"
+  fi
+  body="$(mcp_call "$local_url/designcraft/mcp" "$token" '{"name":"open_document","arguments":{"path":"/etc/passwd"}}' || true)"
+  grep -q 'Refused' <<<"$body" && ok "DesignCraft policy: path outside $(editorial_root) refused" \
+    || err "DesignCraft policy did NOT refuse /etc/passwd"
+  body="$(mcp_call "$local_url/designcraft/mcp" "$token" '{"name":"execute","arguments":{"command":"file.print","params":{"dryRun":true}}}' || true)"
+  grep -q 'Refused' <<<"$body" && ok "DesignCraft policy: file.print refused" || err "DesignCraft policy did NOT refuse file.print"
+  body="$(mcp_call "$local_url/designcraft/mcp" "$token" '{"name":"key","arguments":{"key":"P","cmd":true}}' || true)"
+  grep -q 'Refused' <<<"$body" && ok "DesignCraft policy: key (command shortcuts) refused" || err "DesignCraft policy did NOT refuse key"
+  listeners="$(ss -Hltn "sport = :$(env_get DESIGNCRAFT_PORT 8767)" 2>/dev/null | awk '{print $4}')"
+  if [[ -z "$listeners" ]]; then err "DesignCraft is not listening on :$(env_get DESIGNCRAFT_PORT 8767)"
+  elif grep -qvE '^(127\.0\.0\.1|\[::1\]):' <<<"$listeners"; then err "DesignCraft listens beyond loopback: $listeners"
+  else ok "DesignCraft bound to loopback only ($listeners)"; fi
+}
+
 live() {
   local local_url public token body code
   local_url="$(gateway_local_url)"
@@ -187,6 +242,7 @@ live() {
   grep -q 'Refused' <<<"$body" && ok "policy: run_script refused" || err "policy did NOT refuse run_script"
   [[ "$(mcp_mode)" == "host" ]] && host_live "$local_url" "$token"
   assets_live "$local_url"
+  designcraft_enabled && [[ "$(mcp_mode)" == "host" ]] && designcraft_live "$local_url"
 
   if public="$(public_url)"; then
     code="$(curl -s -o /dev/null -w '%{http_code}' "$public/.well-known/oauth-protected-resource")"
@@ -197,6 +253,11 @@ live() {
       token="$("$ROOT/bin/token" --quiet --assets)"
       body="$(mcp_initialize "$public/assets/mcp" "$token" || true)"
       grep -q '"serverInfo"' <<<"$body" && ok "assets initialize through ngrok" || err "assets initialize through ngrok failed"
+      if designcraft_enabled && [[ "$(mcp_mode)" == "host" ]]; then
+        token="$("$ROOT/bin/token" --quiet --designcraft)"
+        body="$(mcp_initialize "$public/designcraft/mcp" "$token" || true)"
+        grep -q '"serverInfo"' <<<"$body" && ok "DesignCraft initialize through ngrok" || err "DesignCraft initialize through ngrok failed"
+      fi
     else
       err "MCP initialize through ngrok failed"
     fi

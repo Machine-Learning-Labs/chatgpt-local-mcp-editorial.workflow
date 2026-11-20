@@ -1,4 +1,8 @@
-"""ASGI application wiring: OAuth endpoints + protected MCP proxies (/editor/mcp, /assets/mcp)."""
+"""ASGI application wiring: OAuth endpoints + protected MCP proxies.
+
+/editor/mcp (Scribus), and optionally /assets/mcp (Editorial Assets) and /designcraft/mcp
+(DesignCraft).
+"""
 
 from __future__ import annotations
 
@@ -15,9 +19,10 @@ from starlette.routing import Route
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from . import __version__
-from .config import ASSETS_PATH, EDITOR_PATH, Settings
+from .config import ASSETS_PATH, DESIGNCRAFT_PATH, EDITOR_PATH, Settings
 from .network import client_ip, ip_allowed
 from .oauth import OAuthServer
+from .policy_designcraft import DesignCraftPolicy
 from .proxy import McpProxy, UploadPassthrough
 
 audit = logging.getLogger("mcp_oauth_gateway.audit")
@@ -103,6 +108,22 @@ def create_app(
         if settings.assets_upstream_url
         else None
     )
+    designcraft = (
+        McpProxy(
+            oauth,
+            lambda: state["client"],
+            resource_path=DESIGNCRAFT_PATH,
+            upstream_url=settings.designcraft_upstream_url,
+            host_header=settings.designcraft_upstream_host_header,
+            policy=DesignCraftPolicy.from_settings(settings),
+        )
+        if settings.designcraft_upstream_url
+        else None
+    )
+    # Optional resources: each has its own metadata, challenge, audience and policy.
+    optional = [
+        (path, p) for path, p in ((ASSETS_PATH, assets), (DESIGNCRAFT_PATH, designcraft)) if p
+    ]
 
     async def healthz(_request: Request) -> JSONResponse:
         return JSONResponse({"status": "ok", "version": __version__})
@@ -113,6 +134,7 @@ def create_app(
                 "service": "mcp-oauth-gateway",
                 "editor": EDITOR_PATH,
                 "assets": ASSETS_PATH if assets else None,
+                "designcraft": DESIGNCRAFT_PATH if designcraft else None,
                 "metadata": "/.well-known/oauth-authorization-server",
             }
         )
@@ -144,20 +166,20 @@ def create_app(
         Route("/token", oauth.token, methods=["POST"], max_body_size=_MACHINE_MAX_BODY),
         Route(EDITOR_PATH, proxy.handle, methods=methods, max_body_size=settings.max_body_bytes),
     ]
+    for path, resource in optional:
+        routes += [
+            Route(
+                f"/.well-known/oauth-protected-resource{path}", oauth.protected_resource_metadata
+            ),
+            Route(
+                f"/.well-known/oauth-authorization-server{path}",
+                oauth.authorization_server_metadata,
+            ),
+            Route(path, resource.handle, methods=methods, max_body_size=settings.max_body_bytes),
+        ]
     if assets is not None:
         upload = UploadPassthrough(settings, lambda: state["client"])
         routes += [
-            Route(
-                f"/.well-known/oauth-protected-resource{ASSETS_PATH}",
-                oauth.protected_resource_metadata,
-            ),
-            Route(
-                f"/.well-known/oauth-authorization-server{ASSETS_PATH}",
-                oauth.authorization_server_metadata,
-            ),
-            Route(
-                ASSETS_PATH, assets.handle, methods=methods, max_body_size=settings.max_body_bytes
-            ),
             Route(
                 "/upload/{token}",
                 upload.handle,

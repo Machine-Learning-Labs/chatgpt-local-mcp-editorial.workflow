@@ -66,7 +66,7 @@ Images generated in ChatGPT reach `EDITORIAL_ROOT/libro/assets/` through the **E
 
 ### Who else can reach the service
 
-scribus-mcp and the assets server trust every local process: they listen on 127.0.0.1 without authentication of their own. That is fine for your own account on your own machine. `bin/check` warns when other login accounts exist; [security.md](security.md) explains the options for a shared machine.
+scribus-mcp, the assets server and the DesignCraft bridge trust every local process: they listen on 127.0.0.1 without authentication of their own. That is fine for your own account on your own machine. `bin/check` warns when other login accounts exist; [security.md](security.md) explains the options for a shared machine.
 
 ## Troubleshooting
 
@@ -77,3 +77,7 @@ scribus-mcp and the assets server trust every local process: they listen on 127.
 | `port 8765 is already in use` | An old `make host-mcp` or another process holds the port. Change `HOST_MCP_PORT`. |
 | The New Document wizard blocks the bridge | Close it once. To disable it, set `ShowStartupDialog="0"` in `~/.config/scribus/scribus*.rc`. |
 | `Refused: … outside the editorial folder` | Working as intended. Use a path under `EDITORIAL_ROOT`. |
+
+## DesignCraft (optional)
+
+With `DESIGNCRAFT_ENABLED=true`, `make up` also starts `bin/designcraft-service`: a second systemd user unit with the same lifecycle (transient by default, `make designcraft-install` for a persistent one, `make designcraft-uninstall` to remove it and its runtime). It runs mcp-proxy from its own venv under `~/.local/share/editorial-workflow/designcraft/`, in front of the system's `/usr/bin/designcraft-cli` (headless, confined to `EDITORIAL_ROOT`). Nothing goes into conda or the system Python. See [designcraft.md](designcraft.md).
