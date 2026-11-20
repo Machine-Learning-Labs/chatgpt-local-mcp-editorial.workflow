@@ -92,3 +92,5 @@ The layout, conventions and agent rules are in [AGENTS.md](AGENTS.md). The livin
 ## License
 
 MIT. scribus-mcp, Scribus and ngrok are separate projects with their own licenses.
+
+This is an independent project. It is not affiliated with or endorsed by OpenAI, Anthropic, the Scribus team or ngrok. ChatGPT, Claude, Scribus and ngrok are trademarks of their respective owners.
