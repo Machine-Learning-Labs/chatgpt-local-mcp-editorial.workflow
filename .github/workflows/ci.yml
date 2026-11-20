@@ -50,8 +50,9 @@ jobs:
             ENV_FILE=ci.env bin/compose config -q
           done
           # Host mode with the DesignCraft connector: its upstream reaches the gateway.
-          echo "DESIGNCRAFT_ENABLED=true" >> ci.env
-          ENV_FILE=ci.env bin/compose config | grep -q 'DESIGNCRAFT_UPSTREAM_URL: http://127.0.0.1:8767/mcp'
+          sed -i '/^MCP_MODE=/d' ci.env && printf 'MCP_MODE=host\nDESIGNCRAFT_ENABLED=true\n' >> ci.env
+          ENV_FILE=ci.env bin/compose config > rendered.yml
+          grep -q 'DESIGNCRAFT_UPSTREAM_URL: http://127.0.0.1:8767/mcp' rendered.yml
       - run: python3 -I -m py_compile containers/designcraft-mcp/audit.py
 
   images:
