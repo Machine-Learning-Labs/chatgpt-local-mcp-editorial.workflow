@@ -1,0 +1,238 @@
+#!/usr/bin/env bash
+# DesignCraft for the gateway (MCP_MODE=host, DESIGNCRAFT_ENABLED=true): mcp-proxy in front of
+# `designcraft-cli mcp`, as a systemd *user* service on 127.0.0.1:DESIGNCRAFT_PORT.
+#
+#   bin/designcraft-service start       run it now as a TRANSIENT unit (systemd-run): nothing
+#                                       is written to ~/.config, it disappears on stop/logout
+#   bin/designcraft-service stop        stop it (transient: gone; installed: stays installed)
+#   bin/designcraft-service install [--enable]
+#                                       write ~/.config/systemd/user/<unit>.service
+#   bin/designcraft-service uninstall   stop, disable, remove the unit file AND its runtime
+#   bin/designcraft-service status | logs | is-transient
+#   bin/designcraft-service run         what the unit executes: checks, then mcp-proxy
+#
+# Isolation (docs/designcraft.md):
+# - DesignCraft confines every file it reads or writes to EDITORIAL_ROOT itself
+#   (--automation-read-root / --automation-write-root, links followed).
+# - mcp-proxy runs from its own hash-pinned venv (uv-managed CPython). The CLI gets a private
+#   HOME and no display variables: no system clipboard, and no settings, presets or recovery
+#   files shared with your desktop DesignCraft. Your user fonts are linked in, read-only.
+# - It listens on 127.0.0.1 only; the gateway (host network) is the only door to it.
+# - It refuses to start when designcraft-cli is not DESIGNCRAFT_VERSION, the version the
+#   gateway policy was reviewed against. After an upgrade, run bin/designcraft-audit.
+source "$(dirname "$0")/lib.sh"
+
+UNIT="${DESIGNCRAFT_SERVICE_NAME:-editorial-designcraft-mcp}"
+UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
+UNIT_FILE="$UNIT_DIR/$UNIT.service"
+PROXY_VERSION="$(env_get MCP_PROXY_VERSION 0.15.0)"
+WANT_VERSION="$(env_get DESIGNCRAFT_VERSION 0.20.1)"
+PORT="$(env_get DESIGNCRAFT_PORT 8767)"
+CLI="$(env_get DESIGNCRAFT_CLI /usr/bin/designcraft-cli)"
+BASE_DIR="${EWF_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/editorial-workflow}"
+DATA_DIR="$BASE_DIR/designcraft"
+VENV="$DATA_DIR/mcp-proxy-$PROXY_VERSION"
+DC_HOME="$DATA_DIR/home"
+ROOT_DIR="$(editorial_root)"
+REQUIREMENTS="$ROOT/containers/designcraft-mcp/requirements.txt"
+
+# Sandboxing that works for unprivileged user units. No GUI variables: headless only.
+HARDENING=(
+  NoNewPrivileges=yes
+  UMask=0077
+  LockPersonality=yes
+  RestrictRealtime=yes
+  RestrictSUIDSGID=yes
+  SystemCallArchitectures=native
+  "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6"
+  MemoryMax=2G
+  TasksMax=256
+  Restart=on-failure
+  RestartSec=3
+  # mcp-proxy starts the CLI in its own session: stop both, the CLI after a grace period.
+  KillMode=mixed
+  TimeoutStopSec=10
+)
+
+have systemctl || die "systemd is required for the DesignCraft service"
+
+# Unit files expand % and $ and treat quotes and backslashes specially: refuse them in the
+# paths that end up in the unit rather than escaping them.
+check_paths() {
+  local p
+  for p in "$ROOT" "$ROOT_DIR" "$BASE_DIR" "$ENV_FILE" "$CLI"; do
+    [[ "$p" == *[%\$\"\\]* ]] && die "unsupported character (%, \$, \" or \\) in path: $p"
+  done
+  [[ "$PORT" =~ ^[0-9]+$ ]] || die "DESIGNCRAFT_PORT must be a number (got $PORT)"
+  return 0
+}
+
+dc_version() { "$CLI" --version 2>/dev/null | awk '{print $2}'; }
+
+version_gate() {
+  [[ -x "$CLI" ]] || die "designcraft-cli not found at $CLI: install DesignCraft (https://getartcraft.com/apps/designcraft) or set DESIGNCRAFT_CLI"
+  local found
+  found="$(dc_version)"
+  [[ "$found" == "$WANT_VERSION" ]] \
+    || die "designcraft-cli is ${found:-unknown}, but the gateway policy was reviewed for $WANT_VERSION: run bin/designcraft-audit, then set DESIGNCRAFT_VERSION=$found in .env"
+}
+
+ensure_runtime() {
+  if [[ -x "$VENV/bin/mcp-proxy" ]]; then return; fi
+  local uv
+  uv="$(find_uv)" || die "uv is needed once to build the runtime: curl -LsSf https://astral.sh/uv/install.sh | sh (or set UV=/path/to/uv in .env)"
+  # The runtime runs on this machine as you: only the reviewed, hash-pinned set is installed.
+  grep -qE "^mcp-proxy==${PROXY_VERSION}( |$)" "$REQUIREMENTS" \
+    || die "MCP_PROXY_VERSION=$PROXY_VERSION is not what $REQUIREMENTS pins: run 'make lock' and retry"
+  info "building runtime $VENV with $uv (uv-managed Python, isolated from conda/system)"
+  mkdir -p "$DATA_DIR"
+  env -u VIRTUAL_ENV -u CONDA_PREFIX -u PYTHONPATH -u PYTHONHOME \
+    "$uv" venv --quiet --no-config --python 3.12 --python-preference only-managed "$VENV"
+  env -u VIRTUAL_ENV -u CONDA_PREFIX -u PYTHONPATH -u PYTHONHOME \
+    "$uv" pip install --quiet --no-config --python "$VENV/bin/python" \
+    --require-hashes -r "$REQUIREMENTS"
+  ok "runtime ready: mcp-proxy $PROXY_VERSION"
+}
+
+# Private HOME for the CLI, with your user font folders linked in (read by the font scan).
+prepare_home() {
+  mkdir -p "$DC_HOME/.local/share"
+  local rel
+  for rel in .local/share/fonts .fonts; do
+    if [[ -d "$HOME/$rel" && ! -e "$DC_HOME/$rel" ]]; then ln -s "$HOME/$rel" "$DC_HOME/$rel"; fi
+  done
+}
+
+# The unit's command: run in the unit, never by hand on the owner's machine.
+cmd_run() {
+  check_paths
+  version_gate
+  [[ -d "$ROOT_DIR" ]] || die "EDITORIAL_ROOT $ROOT_DIR does not exist (bin/setup)"
+  [[ -x "$VENV/bin/mcp-proxy" ]] || die "runtime missing: bin/designcraft-service start builds it"
+  prepare_home
+  cd "$ROOT_DIR"
+  # env -i: mcp-proxy and the CLI see only these variables (no DISPLAY, no real HOME).
+  exec env -i PATH=/usr/local/bin:/usr/bin:/bin HOME="$DC_HOME" LANG=C.UTF-8 \
+    "$VENV/bin/mcp-proxy" --host 127.0.0.1 --port "$PORT" --stateless \
+    -- "$CLI" mcp --automation-read-root "$ROOT_DIR" --automation-write-root "$ROOT_DIR"
+}
+
+is_installed() { [[ -f "$UNIT_FILE" ]]; }
+is_active() { systemctl --user is-active --quiet "$UNIT"; }
+is_transient() {
+  systemctl --user show -p FragmentPath --value "$UNIT" 2>/dev/null | grep -q '/transient/'
+}
+port_busy() { (exec 3<>"/dev/tcp/127.0.0.1/$PORT") 2>/dev/null; }
+wait_listening() {
+  for _ in $(seq 1 60); do port_busy && return 0; sleep 0.5; done
+  return 1
+}
+
+# What the unit needs to find the same .env and data folder as this shell.
+unit_env() {
+  echo "ENV_FILE=$ENV_FILE"
+  [[ -n "${EWF_DATA_DIR:-}" ]] && echo "EWF_DATA_DIR=$EWF_DATA_DIR"
+  [[ -n "${DESIGNCRAFT_SERVICE_NAME:-}" ]] && echo "DESIGNCRAFT_SERVICE_NAME=$DESIGNCRAFT_SERVICE_NAME"
+  return 0
+}
+
+cmd_start() {
+  if is_active; then ok "$UNIT already running on 127.0.0.1:$PORT"; return; fi
+  check_paths
+  version_gate
+  port_busy && die "port $PORT is already in use (DESIGNCRAFT_PORT)"
+  mkdir -p "$ROOT_DIR"
+  ensure_runtime
+  if is_installed; then
+    systemctl --user start "$UNIT"
+  else
+    local args=(--user --unit="$UNIT" --collect --quiet
+      --description="editorial.workflow DesignCraft MCP (transient)"
+      --working-directory="$ROOT_DIR")
+    local p v
+    for p in "${HARDENING[@]}"; do args+=(--property="$p"); done
+    while IFS= read -r v; do args+=(--setenv="$v"); done < <(unit_env)
+    systemd-run "${args[@]}" "$ROOT/bin/designcraft-service" run
+  fi
+  wait_listening || die "DesignCraft MCP did not start: bin/designcraft-service logs"
+  ok "$UNIT listening on 127.0.0.1:$PORT ($(is_installed && echo installed || echo transient))"
+}
+
+cmd_stop() {
+  if ! is_active; then ok "$UNIT is not running"; return; fi
+  systemctl --user stop "$UNIT"
+  ok "$UNIT stopped"
+}
+
+cmd_install() {
+  local enable=0
+  [[ "${1:-}" == "--enable" ]] && enable=1
+  check_paths
+  version_gate
+  if is_active && is_transient; then systemctl --user stop "$UNIT"; fi
+  mkdir -p "$ROOT_DIR" "$UNIT_DIR"
+  ensure_runtime
+  {
+    echo "# Managed by editorial.workflow bin/designcraft-service — remove with: bin/designcraft-service uninstall"
+    echo "[Unit]"
+    echo "Description=editorial.workflow DesignCraft MCP (127.0.0.1:$PORT)"
+    echo
+    echo "[Service]"
+    echo "ExecStart=\"$ROOT/bin/designcraft-service\" run"
+    echo "WorkingDirectory=$ROOT_DIR"
+    local v
+    while IFS= read -r v; do echo "Environment=\"$v\""; done < <(unit_env)
+    for v in "${HARDENING[@]}"; do echo "$v"; done
+    echo
+    echo "[Install]"
+    echo "WantedBy=default.target"
+  } >"$UNIT_FILE"
+  chmod 600 "$UNIT_FILE"
+  systemctl --user daemon-reload
+  ok "installed $UNIT_FILE"
+  if (( enable )); then
+    systemctl --user enable --now "$UNIT" >/dev/null
+    ok "enabled: starts at login"
+  fi
+}
+
+cmd_uninstall() {
+  if is_active; then systemctl --user stop "$UNIT"; fi
+  if is_installed; then
+    systemctl --user disable "$UNIT" >/dev/null 2>&1 || true
+    rm -f "$UNIT_FILE"
+    systemctl --user daemon-reload
+    ok "removed $UNIT_FILE"
+  fi
+  systemctl --user reset-failed "$UNIT" >/dev/null 2>&1 || true
+  if [[ -d "$DATA_DIR" ]]; then
+    rm -rf "$DATA_DIR"
+    rmdir "$BASE_DIR" 2>/dev/null || true
+    ok "removed runtime $DATA_DIR"
+  fi
+  ok "nothing of $UNIT is left on this machine (your $ROOT_DIR is untouched)"
+}
+
+cmd_status() {
+  local state="stopped"
+  is_active && state="running ($(is_transient && echo transient || echo installed))"
+  echo "unit:        $UNIT — $state"
+  echo "file:        $(is_installed && echo "$UNIT_FILE" || echo "not installed")"
+  echo "runtime:     $([[ -x "$VENV/bin/mcp-proxy" ]] && echo "$VENV" || echo "not built")"
+  echo "designcraft: $([[ -x "$CLI" ]] && echo "$(dc_version) at $CLI (reviewed: $WANT_VERSION)" || echo "not installed ($CLI)")"
+  echo "endpoint:    http://127.0.0.1:$PORT/mcp"
+  echo "root:        $ROOT_DIR (read and write roots)"
+}
+
+case "${1:-}" in
+  start) cmd_start ;;
+  stop) cmd_stop ;;
+  restart) cmd_stop; cmd_start ;;
+  install) shift; cmd_install "$@" ;;
+  uninstall) cmd_uninstall ;;
+  status) cmd_status ;;
+  logs) exec journalctl --user -u "$UNIT" -f -n 100 ;;
+  run) cmd_run ;;
+  is-transient) is_active && is_transient ;;
+  *) sed -n '2,22p' "$0"; exit 2 ;;
+esac

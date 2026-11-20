@@ -5,7 +5,9 @@ s ?=
 
 .PHONY: help up start down down-all restart setup dev check check-live token url logs ps build \
         scribus service-start service-stop service-install service-enable service-uninstall \
-        service-status service-logs rotate test lint fmt lock clean
+        service-status service-logs designcraft-start designcraft-stop designcraft-install \
+        designcraft-uninstall designcraft-status designcraft-logs designcraft-audit \
+        rotate test lint fmt lock clean
 
 help: ## Show this help
 	@awk 'BEGIN{FS=":.*## "} /^[a-z-]+:.*## /{printf "  \033[36m%-17s\033[0m %s\n",$$1,$$2}' $(MAKEFILE_LIST)
@@ -75,6 +77,27 @@ service-status: ## Host mode: unit, runtime, endpoint and bridge status
 service-logs: ## Host mode: follow scribus-mcp logs (journald)
 	@bin/host-service logs
 
+designcraft-start: ## DesignCraft connector: run mcp-proxy + headless DesignCraft as a transient unit
+	@bin/designcraft-service start
+
+designcraft-stop: ## DesignCraft connector: stop its unit
+	@bin/designcraft-service stop
+
+designcraft-install: ## DesignCraft connector: install its unit (persistent, not at login)
+	@bin/designcraft-service install
+
+designcraft-uninstall: ## DesignCraft connector: remove unit + runtime (leaves nothing behind)
+	@bin/designcraft-service uninstall
+
+designcraft-status: ## DesignCraft connector: unit, runtime, versions and endpoint
+	@bin/designcraft-service status
+
+designcraft-logs: ## DesignCraft connector: follow logs (journald)
+	@bin/designcraft-service logs
+
+designcraft-audit: ## After a DesignCraft upgrade: what changed since the reviewed version
+	@bin/designcraft-audit
+
 rotate: ## Rotate GATEWAY_SECRET (revokes every token and client)
 	@bin/rotate
 
@@ -87,7 +110,7 @@ lint: ## Ruff lint only
 fmt: ## Format Python code
 	@.venv/bin/ruff format src tests && .venv/bin/ruff check --fix src tests
 
-lock: ## Pin dependencies with hashes (uv.lock + containers/*/requirements.txt); run after changing pyproject or SCRIBUS_MCP_VERSION
+lock: ## Pin dependencies with hashes (uv.lock + containers/*/requirements.txt); run after changing pyproject, SCRIBUS_MCP_VERSION or MCP_PROXY_VERSION
 	@bin/lock
 
 clean: ## Remove local caches (keeps .env and your editorial folder)

@@ -26,8 +26,8 @@ jobs:
       - run: .venv/bin/pytest --cov --cov-report=term-missing:skip-covered
 
   audit:
-    # Known vulnerabilities in the pinned sets: the project (uv.lock) and the scribus-mcp
-    # runtime that runs on the owner's machine.
+    # Known vulnerabilities in the pinned sets: the project (uv.lock) and the runtimes that
+    # run on the owner's machine (scribus-mcp, mcp-proxy for DesignCraft).
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -35,6 +35,7 @@ jobs:
       - run: uv export --frozen --all-extras --no-emit-project -o requirements-audit.txt
       - run: uvx pip-audit --no-deps --disable-pip -r requirements-audit.txt
       - run: uvx pip-audit --no-deps --disable-pip -r containers/scribus-mcp/requirements.txt
+      - run: uvx pip-audit --no-deps --disable-pip -r containers/designcraft-mcp/requirements.txt
 
   scripts:
     runs-on: ubuntu-latest
@@ -48,6 +49,10 @@ jobs:
             sed -i '/^MCP_MODE=/d' ci.env && echo "MCP_MODE=$mode" >> ci.env
             ENV_FILE=ci.env bin/compose config -q
           done
+          # Host mode with the DesignCraft connector: its upstream reaches the gateway.
+          echo "DESIGNCRAFT_ENABLED=true" >> ci.env
+          ENV_FILE=ci.env bin/compose config | grep -q 'DESIGNCRAFT_UPSTREAM_URL: http://127.0.0.1:8767/mcp'
+      - run: python3 -I -m py_compile containers/designcraft-mcp/audit.py
 
   images:
     runs-on: ubuntu-latest

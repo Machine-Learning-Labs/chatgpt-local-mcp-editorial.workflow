@@ -91,12 +91,15 @@ compose_env() {
   COMPOSE_ARGS=(-f "$ROOT/docker-compose.yml")
   if [[ "$(env_get MCP_MODE container)" == "host" ]]; then
     COMPOSE_ARGS+=(-f "$ROOT/docker-compose.host.yml")
+    # Third connector: DesignCraft (host mode only, see docs/designcraft.md).
+    if designcraft_enabled; then COMPOSE_ARGS+=(-f "$ROOT/docker-compose.designcraft.yml"); fi
   else
     COMPOSE_ARGS+=(--profile container)
   fi
 }
 
 mcp_mode() { env_get MCP_MODE container; }
+designcraft_enabled() { [[ "$(env_get DESIGNCRAFT_ENABLED false)" == "true" ]]; }
 editorial_root() { env_get EDITORIAL_ROOT "$HOME/Editorial"; }
 
 # The MCP may read, write and delete everything under EDITORIAL_ROOT: it must be a
