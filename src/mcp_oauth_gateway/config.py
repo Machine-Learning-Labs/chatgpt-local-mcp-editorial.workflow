@@ -11,6 +11,174 @@ DEFAULT_SCOPE = "mcp"
 # Public paths of the protected resources (one ChatGPT connector each).
 EDITOR_PATH = "/editor/mcp"  # Scribus (scribus-mcp)
 ASSETS_PATH = "/assets/mcp"  # Editorial Assets
+DESIGNCRAFT_PATH = "/designcraft/mcp"  # DesignCraft (designcraft-cli mcp behind mcp-proxy)
+
+# DesignCraft (docs/designcraft.md). The headless engine confines files itself; the gateway
+# fails closed on everything else: only these tools and commands reach it, so a tool or a
+# command namespace that a new DesignCraft release adds is refused until it is reviewed
+# (bin/designcraft-audit). Reviewed against designcraft 0.20.1.
+DEFAULT_DESIGNCRAFT_ALLOW_TOOLS = (
+    "list_commands",
+    "execute",
+    "batch",
+    "inspect_document",
+    "get_story",
+    "set_story_text",
+    "new_document",
+    "open_document",
+    "save_document",
+    "place_image",
+    "render_page",
+    "export_png",
+    # Not listed: key (headless, it runs command shortcuts: Cmd+P prints), pointer,
+    # select_tool, type_text, ime (gestures, covered by commands) and the window tools
+    # (screenshot, click, drag, menu_list, ui_*, dialog_*), which need a desktop app.
+)
+# Every namespace of 0.20.1 except app, view and script (UI-only or opaque command text);
+# file.* and edit.* are listed one by one.
+DEFAULT_DESIGNCRAFT_ALLOW_COMMANDS = (
+    *(
+        f"{ns}.*"
+        for ns in [
+            "anchor",
+            "anchored",
+            "article",
+            "book",
+            "bookmark",
+            "button",
+            "changes",
+            "color",
+            "condition",
+            "conveyor",
+            "data",
+            "document",
+            "endnote",
+            "find",
+            "flex",
+            "font",
+            "footnote",
+            "form",
+            "frame",
+            "gap",
+            "guide",
+            "hyperlink",
+            "hyphenation",
+            "index",
+            "ink",
+            "layer",
+            "layout",
+            "library",
+            "line",
+            "links",
+            "liquid",
+            "list",
+            "math",
+            "media",
+            "note",
+            "object",
+            "page",
+            "path",
+            "place",
+            "preflight",
+            "prefs",
+            "select",
+            "selection",
+            "snippet",
+            "spelling",
+            "states",
+            "story",
+            "strokeStyle",
+            "style",
+            "swatch",
+            "table",
+            "text",
+            "toc",
+            "tool",
+            "transform",
+            "type",
+            "variables",
+            "xml",
+            "xref",
+        ]
+    ),
+    *(
+        f"file.{name}"
+        for name in [
+            "new",
+            "newSample",
+            "presets",
+            "savePreset",
+            "deletePreset",
+            "open",
+            "openBytes",
+            "save",
+            "saveAs",
+            "saveACopy",
+            "revert",
+            "recovery.list",
+            "recovery.save",
+            "recovery.open",
+            "serialize",
+            "close",
+            "activate",
+            "place",
+            "info",
+            "info.get",
+            "exportIdml",
+            "openIdml",
+            "exportPdf",
+            "exportEpub",
+            "exportFixedEpub",
+            "printBooklet",
+            "exportHtml",
+            "exportPptx",
+            "exportText",
+            "exportBatch",
+            "exportPresets",
+            "saveExportPreset",
+            "deleteExportPreset",
+            "exportXml",
+            "importXml",
+            "package",
+        ]
+    ),
+    *(
+        f"edit.{name}"
+        for name in [
+            "undo",
+            "redo",
+            "selectAll",
+            "deselectAll",
+            "clear",
+            "copy",
+            "cut",
+            "pasteInto",
+            "pasteInPlace",
+            "duplicate",
+            "preview",
+            "commitPreview",
+            "cancelPreview",
+            "pasteSvg",
+            "stepAndRepeat",
+            "transparencyBlendSpace",
+        ]
+    ),
+)
+# Refused even if an allow pattern matches: they reach outside the engine's file roots.
+DEFAULT_DESIGNCRAFT_DENY_COMMANDS = (
+    "file.print",  # runs `lp`: the system print spooler
+    "file.printers",  # lists this machine's printers
+    "file.openRecent",  # the recent-files list is not agent input
+    "file.recentFiles",
+    "file.clearRecent",
+    "edit.paste",  # paste the system clipboard's text
+    "edit.pasteWithoutFormatting",
+    "script.run",  # command lines the gateway cannot see
+    "app.*",
+    "view.*",
+    "help.*",
+    "window.*",
+)
 
 # Tools that can run code or touch Scribus' own configuration. Hidden and refused
 # unless explicitly re-enabled through POLICY_DENY_TOOLS.
@@ -68,6 +236,13 @@ class Settings:
     assets_upstream_url: str = ""
     assets_upstream_host_header: str = ""
     assets_max_upload_bytes: int = 31 * 1024 * 1024
+    assets_subdir: str = "libro/assets"  # where Editorial Assets saves images (instructions)
+    # Third protected resource (DesignCraft via mcp-proxy) at /designcraft/mcp; empty = disabled.
+    designcraft_upstream_url: str = ""
+    designcraft_upstream_host_header: str = ""
+    designcraft_allow_tools: tuple[str, ...] = DEFAULT_DESIGNCRAFT_ALLOW_TOOLS
+    designcraft_allow_commands: tuple[str, ...] = DEFAULT_DESIGNCRAFT_ALLOW_COMMANDS
+    designcraft_deny_commands: tuple[str, ...] = DEFAULT_DESIGNCRAFT_DENY_COMMANDS
     public_url: str = ""
     access_token_ttl: int = 3600
     refresh_token_ttl: int = 30 * 24 * 3600
@@ -113,6 +288,18 @@ class Settings:
             assets_upstream_host_header=env.get("ASSETS_UPSTREAM_HOST_HEADER", ""),
             assets_max_upload_bytes=_int(
                 env.get("ASSETS_MAX_UPLOAD_BYTES"), cls.assets_max_upload_bytes
+            ),
+            assets_subdir=env.get("ASSETS_SUBDIR", "").strip("/") or cls.assets_subdir,
+            designcraft_upstream_url=env.get("DESIGNCRAFT_UPSTREAM_URL", "").rstrip("/"),
+            designcraft_upstream_host_header=env.get("DESIGNCRAFT_UPSTREAM_HOST_HEADER", ""),
+            designcraft_allow_tools=_list(
+                env.get("DESIGNCRAFT_ALLOW_TOOLS"), DEFAULT_DESIGNCRAFT_ALLOW_TOOLS
+            ),
+            designcraft_allow_commands=_list(
+                env.get("DESIGNCRAFT_ALLOW_COMMANDS"), DEFAULT_DESIGNCRAFT_ALLOW_COMMANDS
+            ),
+            designcraft_deny_commands=_list(
+                env.get("DESIGNCRAFT_DENY_COMMANDS"), DEFAULT_DESIGNCRAFT_DENY_COMMANDS
             ),
             public_url=env.get("PUBLIC_URL", "").rstrip("/"),
             access_token_ttl=_int(env.get("ACCESS_TOKEN_TTL"), cls.access_token_ttl),

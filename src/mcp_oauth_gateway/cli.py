@@ -74,7 +74,9 @@ def build_parser() -> argparse.ArgumentParser:
     token.add_argument("--subject", default="owner")
     token.add_argument("--public-url", help="issuer/audience, default PUBLIC_URL")
     token.add_argument(
-        "--resource", default=EDITOR_PATH, help="resource path: /editor/mcp or /assets/mcp"
+        "--resource",
+        default=EDITOR_PATH,
+        help="resource path: /editor/mcp, /assets/mcp or /designcraft/mcp",
     )
     token.add_argument("--json", action="store_true", help="print an OAuth token response")
     token.set_defaults(func=_token)
